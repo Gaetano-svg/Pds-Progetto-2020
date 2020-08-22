@@ -38,7 +38,7 @@ int main()
 
     json jUserConf;
 
-    if(!userConfFile >> jUserConf)
+    if(!(userConfFile >> jUserConf))
     {
         cerr << "The User Configuration File couldn't be parsed";
         return -1; 
@@ -48,8 +48,7 @@ int main()
     conf::user uc
     {
         jUserConf["name"].get<string>(),
-        jUserConf["loggerName"].get<string>(),
-        jUserConf["folderName"].get<string>()
+        jUserConf["folderPath"].get<string>()
     };
 
     // 2. Logger initialization
@@ -58,7 +57,7 @@ int main()
 
     try 
     {
-        myLogger = spdlog::basic_logger_mt(uc.name, uc.loggerName);
+        myLogger = spdlog::basic_logger_mt(uc.name, uc.name+"_log.txt");
         myLogger -> info("Logger initialized correctly");
     } 
     catch (const spdlog::spdlog_ex &ex) 
@@ -84,10 +83,9 @@ int main()
         myLogger -> error("Error code opening Server Configuration File: " + error);
     }
     
-
     json jServerConf;
 
-    if(!serverConfFile >> jServerConf)
+    if(!(serverConfFile >> jServerConf))
     {
         myLogger -> error("The Server Configuration File couldn't be parsed");
         return -1; 
