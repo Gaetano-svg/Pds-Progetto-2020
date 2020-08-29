@@ -32,6 +32,7 @@ public:
 
     string ip;
     int port;
+    string logFile = "server_log.txt";
 
     Server (){}
 
@@ -41,7 +42,7 @@ public:
 
         try 
         {
-            this -> log = spdlog::basic_logger_mt(this -> sc.ip,"server_log.txt");
+            this -> log = spdlog::basic_logger_mt(this -> sc.ip, this -> logFile);
             this -> log -> info("Logger initialized correctly");
             this -> log -> flush();
         } 
@@ -86,7 +87,7 @@ public:
 
     }
 
-    void checkIdleClients() {
+    /*void checkIdleClients() {
 
         // we terminate the server with SIGINT
         std::thread idleClients([this](){
@@ -102,7 +103,7 @@ public:
                     std::lock_guard<mutex> lg(m);
                     for(std::pair<int,pClient> client: clients){
                         pClient c = client.second;
-                        if (c->status == active && now-c->touch > IDLE_TIMEOUT){
+                        if (c->status == active){
                             terminating.push_back(c);
                         }
                     }
@@ -116,7 +117,7 @@ public:
         idleClients.detach();
 
     }
-
+    */
     // a while loop used to listen to all the connection request
     int startListening(){
 
@@ -145,8 +146,8 @@ public:
             return -1;
         }
 
-        // start idle clients loop
-        checkIdleClients();
+        // start idle clients loop -> for now it is not used
+        // checkIdleClients();
 
         // we and the server with SIGINT
         while(running) {
@@ -159,9 +160,17 @@ public:
                 log -> error(strerror(errno));
             } else {
                 char buff[8];
-                //mylog(inet_ntop(AF_INET,(struct sockaddr*) &caddr, buff,8));
                 std::lock_guard<mutex> lg(m);
-                pClient client = pClient(new ClientConn(csock, this));
+
+                //get socket ip address
+                struct sockaddr* ccaddr = (struct sockaddr*)&caddr;
+                string clientIp = ccaddr -> sa_data;
+
+                pClient client = pClient(new ClientConn(clientIp, this -> logFile, csock, this));
+
+                // set logger for client connection using the server log file
+                client -> initLogger();
+
                 // this keeps the client alive until it's destroyed
                 clients[csock] = client;
 
@@ -172,6 +181,16 @@ public:
         }
         return 0;
 
+    }
+
+    ~Server(){
+        if(sock!=-1)
+            close(sock);
+    }
+
+    void unregisterClient(int csock){
+        std::lock_guard <mutex> lg(m);
+        clients.erase(csock);
     }
 
 };
