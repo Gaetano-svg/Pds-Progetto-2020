@@ -1,0 +1,47 @@
+[2020-08-20 08:30:53.003] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:30:53.003] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:30:53.003] [gaetano] [error] Can't connect to server, Err #
+[2020-08-20 08:32:04.929] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:32:04.929] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:32:04.929] [gaetano] [error] Can't connect to server, Err #
+[2020-08-20 08:33:07.360] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:33:07.360] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:33:07.360] [gaetano] [error] Can't connect to server, Err #
+[2020-08-20 08:34:04.329] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:34:04.329] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:34:04.330] [gaetano] [error] Can't connect to server, Err #
+[2020-08-20 08:36:49.723] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:36:49.723] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:36:49.723] [gaetano] [error] Can't connect to server, Err #
+[2020-08-20 08:38:08.857] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:38:08.857] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:38:08.857] [gaetano] [error] Can't connect to server, Err #
+[2020-08-20 08:39:36.304] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:39:36.304] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:39:36.304] [gaetano] [error] Can't connect to server, Err #
+[2020-08-20 08:42:09.632] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:42:09.632] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:42:09.632] [gaetano] [error] Can't connect to server, Error: Socket operation on non-socket
+[2020-08-20 08:44:48.288] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:44:48.288] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:44:48.288] [gaetano] [info] Socket 0 was created
+[2020-08-20 08:44:48.288] [gaetano] [error] Can't connect to server, Error: Socket operation on non-socket
+[2020-08-20 08:49:21.134] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:49:21.134] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:49:21.134] [gaetano] [info] Socket 0 was created
+[2020-08-20 08:49:21.134] [gaetano] [error] Can't connect to server, Error: Socket operation on non-socket
+[2020-08-20 08:51:46.869] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:51:46.869] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:51:46.869] [gaetano] [info] Socket 8 was created
+[2020-08-20 08:51:46.869] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-08-20 08:58:08.388] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:58:08.388] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:58:08.388] [gaetano] [info] Socket 8 was created
+[2020-08-20 08:58:08.388] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-08-20 08:59:05.630] [gaetano] [info] Logger initialized correctly
+[2020-08-20 08:59:05.630] [gaetano] [info] Read configuration file in the local folder
+[2020-08-20 08:59:05.630] [gaetano] [info] Socket 8 was created
+[2020-08-20 08:59:05.630] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-08-20 08:59:10.631] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-08-20 08:59:15.631] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-08-20 08:59:20.632] [gaetano] [error] Can't connect to server, Error: Connection refused

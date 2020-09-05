@@ -1,4 +1,5 @@
 {
     "name" : "gaetano",
-    "folderPath" : "/prova"
+    "loggerName" : "logs.txt",
+    "folderName" : "/prova"
 }

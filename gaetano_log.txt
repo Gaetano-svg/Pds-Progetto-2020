@@ -1,6 +1,6 @@
-[2020-08-22 02:00:49.927] [gaetano] [info] Logger initialized correctly
-[2020-08-22 02:00:49.927] [gaetano] [info] Starting read Server configuration file in the local folder
-[2020-08-22 02:00:49.927] [gaetano] [info] Server Configuration File opened correctly!
-[2020-08-22 02:00:49.927] [gaetano] [info] Socket 8 was created
-[2020-08-22 02:00:49.927] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-08-22 02:00:54.928] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-08-22 03:43:35.300] [gaetano] [info] Logger initialized correctly
+[2020-08-22 03:43:35.300] [gaetano] [info] Starting read Server configuration file in the local folder
+[2020-08-22 03:43:35.300] [gaetano] [info] Socket 8 was created
+[2020-08-22 03:43:35.325] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-08-22 03:43:40.326] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-08-22 03:43:45.326] [gaetano] [error] Can't connect to server, Error: Connection refused

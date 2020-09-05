@@ -6,7 +6,8 @@ namespace conf {
     struct user {
 
         std::string name;
-        std::string folderPath;
+        std::string loggerName;
+        std::string folderName;
 
     };
 

@@ -8,7 +8,11 @@
 #include <netinet/in.h>
 #include <string>
 #include <thread>
-#include "server.hpp"
+#include "json.hpp"
+#include "spdlog/spdlog.h"
+#include "spdlog/sinks/basic_file_sink.h"
+#include "message.hpp"
+#include "configuration.hpp"
 
 using namespace std;
 using json = nlohmann::json;
@@ -20,12 +24,6 @@ using json = nlohmann::json;
 
 int main()
 {
-
-    // Create Server Object
-
-    Server server;
-    server.readConfiguration("serverConfiguration.json");
-    server.initLogger();
 
     // 1. Read USER configuration file in the local folder
 
@@ -40,7 +38,7 @@ int main()
 
     json jUserConf;
 
-    if(!(userConfFile >> jUserConf))
+    if(!userConfFile >> jUserConf)
     {
         cerr << "The User Configuration File couldn't be parsed";
         return -1; 
@@ -50,7 +48,8 @@ int main()
     conf::user uc
     {
         jUserConf["name"].get<string>(),
-        jUserConf["folderPath"].get<string>()
+        jUserConf["loggerName"].get<string>(),
+        jUserConf["folderName"].get<string>()
     };
 
     // 2. Logger initialization
@@ -59,9 +58,8 @@ int main()
 
     try 
     {
-        myLogger = spdlog::basic_logger_mt(uc.name, uc.name+"_log.txt");
+        myLogger = spdlog::basic_logger_mt(uc.name, uc.loggerName);
         myLogger -> info("Logger initialized correctly");
-        myLogger -> flush();
     } 
     catch (const spdlog::spdlog_ex &ex) 
     {
@@ -70,6 +68,37 @@ int main()
     }
 
     myLogger -> info("Starting read Server configuration file in the local folder");
+
+    // 3. Read SERVER configuration file in the local folder
+
+    std::ifstream serverConfFile("serverConfiguration.json");
+
+    if(serverConfFile)
+    {
+        myLogger -> info("Server Configuration File opened correctly!");
+    }
+    else
+    {
+        string error = strerror(errno);
+        myLogger -> error("Server Configuration File could not be opened!");
+        myLogger -> error("Error code opening Server Configuration File: " + error);
+    }
+    
+
+    json jServerConf;
+
+    if(!serverConfFile >> jServerConf)
+    {
+        myLogger -> error("The Server Configuration File couldn't be parsed");
+        return -1; 
+    }
+
+    // save the server configuration inside a local struct
+    conf::server sc
+    {
+        jServerConf["ip"].get<string>(),
+        jServerConf["port"].get<string>()
+    };
 
     // 4. Server connection
 
@@ -89,12 +118,12 @@ int main()
 	// Fill in a hint structure
 	sockaddr_in hint;
 	hint.sin_family = AF_INET;
-	hint.sin_port = htons(atoi(server.sc.port.c_str()));
+	hint.sin_port = htons(atoi(sc.port.c_str()));
 	
     // Convert IPv4 and IPv6 addresses from text to binary form 
-    if ((inet_pton(AF_INET, server.sc.ip.c_str(), &hint.sin_addr)) <= 0)
+    if ((inet_pton(AF_INET, sc.ip.c_str(), &hint.sin_addr)) <= 0)
     {
-        myLogger -> error("Invalid address: address " + server.sc.ip + " not supported");
+        myLogger -> error("Invalid address: address " + sc.ip + " not supported");
         close(sock);
         return -1;
     }
