@@ -1,74 +1,133 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include "json.hpp"
-#include "spdlog/spdlog.h"
-#include "spdlog/sinks/basic_file_sink.h"
-#include "configuration.hpp"
+#include "server.hpp"
 
-using namespace std;
-using namespace nlohmann;
+int Server::initLogger(){
 
-class Server {
+    try 
+    {
+        this -> log = spdlog::basic_logger_mt(this -> sc.ip, this -> logFile);
+        this -> log -> info("Logger initialized correctly");
+        this -> log -> flush();
+    } 
+    catch (const spdlog::spdlog_ex &ex) 
+    {
+        cerr << ex.what() << endl;
+        return -1;
+    }
+        
+    return 0;
 
-    string ip;
-    int port;
-    shared_ptr <spdlog::logger> log;
-    nlohmann::json jServerConf;
-
-    Server (string ip, int port){
-
-        this -> ip = ip;
-        this -> port = port;
-
+}
+    void Server::unregisterClient(int csock){
+        std::lock_guard <mutex> lg(m);
+        clients.erase(csock);
     }
 
-    // init the Server Logger
-    // return -1 in case of error
-    int initLogger(){
+    Server::~Server(){
+        if(sock!=-1)
+            close(sock);
+    }
 
-        try 
-        {
-            this -> log = spdlog::basic_logger_mt(this -> ip,"server_log.txt");
-            log -> info("Logger initialized correctly");
-        } 
-        catch (const spdlog::spdlog_ex &ex) 
-        {
-            cerr << ex.what() << endl;
+    int Server::startListening(){
+
+        running = true;
+        int opt = 1;
+        if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR , &opt, sizeof(opt))<0){
+            log -> error("sockopt error");
+            log -> error(strerror(errno));
             return -1;
         }
 
+        sockaddr_in saddr;
+        saddr.sin_family = AF_INET;
+        saddr.sin_port = htons(port);
+        saddr.sin_addr.s_addr = INADDR_ANY;
+
+        if(bind(sock, (struct sockaddr *)&saddr, sizeof(saddr))<0){
+            log -> error("bind error");
+            log -> error(strerror(errno));
+            return -1;
+        }
+
+        if(::listen(sock, 10)<0){
+            log -> error("listen error");
+            log -> error(strerror(errno));
+            return -1;
+        }
+
+        // start idle clients loop -> for now it is not used
+        // checkIdleClients();
+
+        // we and the server with SIGINT
+        while(running) {
+            sockaddr_in caddr;
+            socklen_t addrlen = sizeof(caddr);
+
+            int csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
+            if(csock<0){
+                log -> error("accept error");
+                log -> error(strerror(errno));
+            } else {
+                char buff[8];
+                std::lock_guard<mutex> lg(m);
+
+                //get socket ip address
+                struct sockaddr* ccaddr = (struct sockaddr*)&caddr;
+                string clientIp = ccaddr -> sa_data;
+
+                pClient client = pClient(new ClientConn(clientIp, this -> logFile, csock, this -> sc));
+
+                // set logger for client connection using the server log file
+                client -> initLogger();
+
+                // read client username and folderPath
+                client -> getUserConfiguration();
+
+                // this keeps the client alive until it's destroyed
+                clients[csock] = client;
+
+                // handle connection should return immediately
+                client->handleConnection();
+            }
+
+        }
         return 0;
 
     }
 
-    int readConfiguration (string file) {
+int Server::readUsersPath(){
 
-        // Read SERVER configuration file in the local folder
+    return 0;
 
-        ifstream serverConfFile(file);
+}
 
-        if(!serverConfFile)
-        {
-            string error = strerror(errno);
-            cerr << "Server Configuration File: " << file << " could not be opened!";
-            cerr << "Error code opening Server Configuration File: " << error;
-            return -1;
-        }
+int Server::readConfiguration (string file) {
+
+    // Read SERVER configuration file in the local folder
+
+    ifstream serverConfFile(file);
+    json jServerConf;
+     
+    if(!serverConfFile)
+    {
+        string error = strerror(errno);
+        cerr << "Server Configuration File: " << file << " could not be opened!";
+        cerr << "Error code opening Server Configuration File: " << error;
+        return -1;
+    }
         
-        if(!(serverConfFile >> jServerConf))
-        {
-            cerr << "The Server Configuration File couldn't be parsed";
-            return -2; 
-        }
 
-        // save the server configuration inside a local struct
-        conf::server sc
-        {
-            jServerConf["ip"].get<string>(),
-            jServerConf["port"].get<string>()
-        };
-
+    if(!(serverConfFile >> jServerConf))
+    {
+        cerr << "The Server Configuration File couldn't be parsed";
+        return -2; 
     }
 
-};
+    // save the server configuration inside a local struct
+    this -> sc = {
+        jServerConf["ip"].get<string>(),
+        jServerConf["port"].get<string>()
+    };
+
+    return 0;
+
+}

@@ -1,5 +1,6 @@
 {
+    "serverIp": "127.0.0.1",
+    "serverPort": 3526,
     "name" : "gaetano",
-    "loggerName" : "logs.txt",
-    "folderName" : "/prova"
+    "folderPath" : "/prova"
 }

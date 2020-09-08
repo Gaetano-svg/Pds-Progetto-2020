@@ -3,33 +3,21 @@
 
 namespace conf {
 
+    // User Configuration File -> contiene la configurazione del Client
     struct user {
 
+        std::string serverIp;
+        int serverPort;
         std::string name;
-        std::string loggerName;
-        std::string folderName;
+        std::string folderPath;
 
     };
 
+    // Server Configuration File -> contiente info utili al client per connettersi
     struct server {
 
         std::string ip;
         std::string port;
-
-    };
-
-    struct file {
-
-        std::string name;
-        std::string body; //file content
-        double ts; //modify date
-
-    };
-
-    struct folder {
-
-        int filesNumber;
-        std::vector<std::string> files; // from the string array will be created the FILE array using the json library
 
     };
 
