@@ -17,7 +17,7 @@ namespace conf {
     struct server {
 
         std::string ip;
-        std::string port;
+        int port;
 
     };
 

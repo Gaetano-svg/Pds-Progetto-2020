@@ -57,6 +57,8 @@ int Server::initLogger(){
         // start idle clients loop -> for now it is not used
         // checkIdleClients();
 
+        std::cout << " qua " << std:: endl;
+
         // we and the server with SIGINT
         while(running) {
             sockaddr_in caddr;
@@ -79,12 +81,10 @@ int Server::initLogger(){
                 // set logger for client connection using the server log file
                 client -> initLogger();
 
-                // read client username and folderPath
-                client -> getUserConfiguration();
-
                 // this keeps the client alive until it's destroyed
                 clients[csock] = client;
 
+        std::cout << " qua 1" << std:: endl;
                 // handle connection should return immediately
                 client->handleConnection();
             }
@@ -125,7 +125,7 @@ int Server::readConfiguration (string file) {
     // save the server configuration inside a local struct
     this -> sc = {
         jServerConf["ip"].get<string>(),
-        jServerConf["port"].get<string>()
+        jServerConf["port"].get<int>()
     };
 
     return 0;

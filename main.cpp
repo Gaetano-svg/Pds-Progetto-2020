@@ -33,6 +33,16 @@ int main()
     //server.readUsersPath();
     server.initLogger();
 
+        std::thread serverThread([&server](){
+            // this keeps the ChatClient alive until the we dont't exit the thread
+            // even if it's removed from the clients map (we "abuse" of RAII)
+
+            server.startListening();
+
+            
+        });
+
+        serverThread.detach();
 
     // 1. Read USER configuration file in the local folder
 
@@ -56,9 +66,9 @@ int main()
     // save the user configuration inside a local struct
     conf::user uc
     {
+        jUserConf["serverIp"].get<string>(),
+        jUserConf["serverPort"].get<int>(),
         jUserConf["name"].get<string>(),
-        jUserConf["serverIp"].get<int>(),
-        jUserConf["serverPort"].get<string>(),
         jUserConf["folderPath"].get<string>()
     };
 
@@ -98,7 +108,7 @@ int main()
 	// Fill in a hint structure
 	sockaddr_in hint;
 	hint.sin_family = AF_INET;
-	hint.sin_port = htons(atoi(server.sc.port.c_str()));
+	hint.sin_port = htons(server.sc.port);
 	
     // Convert IPv4 and IPv6 addresses from text to binary form 
     if ((inet_pton(AF_INET, server.sc.ip.c_str(), &hint.sin_addr)) <= 0)
@@ -116,6 +126,11 @@ int main()
         myLogger -> flush();
         sleep(5);
 	}
+
+    // Send Configuration 
+
+    string jUcString = jUserConf.dump();
+    send(sock, jUcString.c_str(), jUcString.length(), 0);
 
     // 5. Threads initialization
 

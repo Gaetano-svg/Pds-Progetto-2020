@@ -78,6 +78,10 @@ public:
         std::thread inboundChannel([this](){
             // this keeps the ChatClient alive until the we dont't exit the thread
             // even if it's removed from the clients map (we "abuse" of RAII)
+
+        std::cout << " qua 2" << std:: endl;
+            getUserConfiguration();
+
             
         });
 
