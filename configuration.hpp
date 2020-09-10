@@ -7,7 +7,7 @@ namespace conf {
     struct user {
 
         std::string serverIp;
-        int serverPort;
+        std::string serverPort;
         std::string name;
         std::string folderPath;
 
@@ -17,7 +17,7 @@ namespace conf {
     struct server {
 
         std::string ip;
-        int port;
+        std::string port;
 
     };
 

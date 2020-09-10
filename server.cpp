@@ -31,6 +31,13 @@ int Server::initLogger(){
 
         running = true;
         int opt = 1;
+        sock = socket(AF_INET, SOCK_STREAM, 0);
+        if ( sock == 0 )  
+        { 
+            perror("socket failed"); 
+            exit(EXIT_FAILURE); 
+        } 
+
         if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR , &opt, sizeof(opt))<0){
             log -> error("sockopt error");
             log -> error(strerror(errno));
@@ -39,7 +46,7 @@ int Server::initLogger(){
 
         sockaddr_in saddr;
         saddr.sin_family = AF_INET;
-        saddr.sin_port = htons(port);
+        saddr.sin_port = htons(atoi(sc.port.c_str()));
         saddr.sin_addr.s_addr = INADDR_ANY;
 
         if(bind(sock, (struct sockaddr *)&saddr, sizeof(saddr))<0){
@@ -57,13 +64,13 @@ int Server::initLogger(){
         // start idle clients loop -> for now it is not used
         // checkIdleClients();
 
-        std::cout << " qua " << std:: endl;
-
         // we and the server with SIGINT
         while(running) {
             sockaddr_in caddr;
             socklen_t addrlen = sizeof(caddr);
 
+            log -> info("waiting for client connection");
+            log -> flush();
             int csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
             if(csock<0){
                 log -> error("accept error");
@@ -78,15 +85,14 @@ int Server::initLogger(){
 
                 pClient client = pClient(new ClientConn(clientIp, this -> logFile, csock, this -> sc));
 
-                // set logger for client connection using the server log file
-                client -> initLogger();
-
+                std::cout << " qua" << std::endl;
                 // this keeps the client alive until it's destroyed
                 clients[csock] = client;
 
-        std::cout << " qua 1" << std:: endl;
                 // handle connection should return immediately
                 client->handleConnection();
+                std::cout << " qua2" << std::endl;
+
             }
 
         }
@@ -125,7 +131,7 @@ int Server::readConfiguration (string file) {
     // save the server configuration inside a local struct
     this -> sc = {
         jServerConf["ip"].get<string>(),
-        jServerConf["port"].get<int>()
+        jServerConf["port"].get<string>()
     };
 
     return 0;

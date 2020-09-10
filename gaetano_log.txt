@@ -1,91 +1,24 @@
-[2020-08-22 03:43:35.300] [gaetano] [info] Logger initialized correctly
-[2020-08-22 03:43:35.300] [gaetano] [info] Starting read Server configuration file in the local folder
-[2020-08-22 03:43:35.300] [gaetano] [info] Socket 8 was created
-[2020-08-22 03:43:35.325] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-08-22 03:43:40.326] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-08-22 03:43:45.326] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:18.769] [gaetano] [info] Logger initialized correctly
-[2020-09-10 09:33:18.770] [gaetano] [info] Starting read Server configuration file in the local folder
-[2020-09-10 09:33:18.770] [gaetano] [info] Socket 8 was created
-[2020-09-10 09:33:18.770] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:23.770] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:28.771] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:33.771] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:38.772] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:43.773] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:48.774] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:53.775] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:33:58.775] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:03.776] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:08.777] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:13.778] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:18.779] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:23.780] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:28.781] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:33.781] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:38.782] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:43.783] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:48.784] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:53.784] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:34:58.785] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:03.785] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:08.786] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:13.787] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:18.787] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:23.788] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:28.788] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:33.789] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:38.791] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:43.792] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:48.793] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:53.794] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:35:58.795] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:03.796] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:08.796] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:13.797] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:18.799] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:23.799] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:28.800] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:33.801] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:38.803] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:43.804] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:48.806] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:53.806] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:36:58.806] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:03.808] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:08.809] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:13.810] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:18.811] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:23.812] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:28.813] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:33.814] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:38.815] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:43.816] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:48.817] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:37:53.818] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:12.639] [gaetano] [info] Logger initialized correctly
-[2020-09-10 09:40:12.639] [gaetano] [info] Starting read Server configuration file in the local folder
-[2020-09-10 09:40:12.639] [gaetano] [info] Socket 8 was created
-[2020-09-10 09:40:12.640] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:17.640] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:22.641] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:27.641] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:32.642] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:37.643] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:42.644] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:47.645] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:52.646] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:40:57.648] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:41:02.649] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:41:07.650] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:41:12.650] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:41:17.651] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:43:42.665] [gaetano] [info] Logger initialized correctly
-[2020-09-10 09:43:42.665] [gaetano] [info] Starting read Server configuration file in the local folder
-[2020-09-10 09:43:42.666] [gaetano] [info] Socket 8 was created
-[2020-09-10 09:43:42.666] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:43:47.666] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:43:52.666] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:43:57.667] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:44:02.668] [gaetano] [error] Can't connect to server, Error: Connection refused
-[2020-09-10 09:44:07.669] [gaetano] [error] Can't connect to server, Error: Connection refused
+[2020-09-10 14:12:03.530] [gaetano] [info] Logger initialized correctly
+[2020-09-10 14:12:03.530] [gaetano] [info] Starting read Server configuration file in the local folder
+[2020-09-10 14:12:03.530] [gaetano] [info] Socket 8 was created
+[2020-09-10 14:12:03.530] [gaetano] [info] connected to server
+[2020-09-10 14:14:01.355] [gaetano] [info] Logger initialized correctly
+[2020-09-10 14:14:01.356] [gaetano] [info] Starting read Server configuration file in the local folder
+[2020-09-10 14:14:01.357] [gaetano] [info] Socket 8 was created
+[2020-09-10 14:14:01.357] [gaetano] [info] connected to server
+[2020-09-10 14:15:02.908] [gaetano] [info] Logger initialized correctly
+[2020-09-10 14:15:02.908] [gaetano] [info] Starting read Server configuration file in the local folder
+[2020-09-10 14:15:02.908] [gaetano] [info] Socket 8 was created
+[2020-09-10 14:15:02.908] [gaetano] [info] connected to server
+[2020-09-10 14:16:33.141] [gaetano] [info] Logger initialized correctly
+[2020-09-10 14:16:33.142] [gaetano] [info] Starting read Server configuration file in the local folder
+[2020-09-10 14:16:33.142] [gaetano] [info] Socket 8 was created
+[2020-09-10 14:16:33.142] [gaetano] [info] connected to server
+[2020-09-10 14:21:02.150] [gaetano] [info] Logger initialized correctly
+[2020-09-10 14:21:02.150] [gaetano] [info] Starting read Server configuration file in the local folder
+[2020-09-10 14:21:02.150] [gaetano] [info] Socket 8 was created
+[2020-09-10 14:21:02.150] [gaetano] [info] connected to server
+[2020-09-10 14:24:23.925] [gaetano] [info] Logger initialized correctly
+[2020-09-10 14:24:23.926] [gaetano] [info] Starting read Server configuration file in the local folder
+[2020-09-10 14:24:23.926] [gaetano] [info] Socket 8 was created
+[2020-09-10 14:24:23.926] [gaetano] [info] connected to server

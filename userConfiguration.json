@@ -1,6 +1,6 @@
 {
     "serverIp": "127.0.0.1",
-    "serverPort": 3526,
+    "serverPort": "3524",
     "name" : "gaetano",
     "folderPath" : "/prova"
 }

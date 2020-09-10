@@ -42,7 +42,6 @@ int main()
             
         });
 
-        serverThread.detach();
 
     // 1. Read USER configuration file in the local folder
 
@@ -67,7 +66,7 @@ int main()
     conf::user uc
     {
         jUserConf["serverIp"].get<string>(),
-        jUserConf["serverPort"].get<int>(),
+        jUserConf["serverPort"].get<string>(),
         jUserConf["name"].get<string>(),
         jUserConf["folderPath"].get<string>()
     };
@@ -89,6 +88,7 @@ int main()
     }
 
     myLogger -> info("Starting read Server configuration file in the local folder");
+    myLogger -> flush();
 
     // 4. Server connection
 
@@ -108,10 +108,10 @@ int main()
 	// Fill in a hint structure
 	sockaddr_in hint;
 	hint.sin_family = AF_INET;
-	hint.sin_port = htons(server.sc.port);
+	hint.sin_port = htons(atoi(server.sc.port.c_str()));
 	
     // Convert IPv4 and IPv6 addresses from text to binary form 
-    if ((inet_pton(AF_INET, server.sc.ip.c_str(), &hint.sin_addr)) <= 0)
+    if ((inet_pton(AF_INET, "127.0.0.1", &hint.sin_addr)) <= 0)
     {
         myLogger -> error("Invalid address: address " + server.sc.ip + " not supported");
         close(sock);
@@ -119,7 +119,7 @@ int main()
     }
 
 	// Connect to server
-	while ((connect(sock, (sockaddr*)&hint, sizeof(hint))) == -1)
+	while (connect(sock, (sockaddr*)&hint, sizeof(hint)) < 0)
 	{
         string error = strerror(errno);
         myLogger -> error("Can't connect to server, Error: " + error);
@@ -127,10 +127,16 @@ int main()
         sleep(5);
 	}
 
+    myLogger -> info ("connected to server");
+    myLogger -> flush();
+
     // Send Configuration 
 
-    string jUcString = jUserConf.dump();
-    send(sock, jUcString.c_str(), jUcString.length(), 0);
+
+
+        serverThread.join();
+    //string jUcString = jUserConf.dump();
+    //send(sock, jUcString.c_str(), jUcString.length(), 0);
 
     // 5. Threads initialization
 

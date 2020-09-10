@@ -11,7 +11,6 @@
 #include "json.hpp"
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
-#include "configuration.hpp"
 #include "clientConn.hpp"
 #include <mutex>
 #include <shared_mutex>
