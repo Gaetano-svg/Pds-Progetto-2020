@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <sys/socket.h>
+#include <boost/filesystem.hpp>
 #include <unistd.h>
 #include "json.hpp"
 #include "message.hpp"
@@ -29,14 +30,20 @@ public:
     int sock;
     string ip;
     string logFile;
+    bool running;
 
     shared_ptr <spdlog::logger> log;
 
-    ClientConn(string ip, string& logFile, int& sock, conf::server server);
+    ClientConn(string& logFile, int& sock, conf::server server);
     int initLogger();
     void fromStringToUserConf(string uc, msg::connection& userConf);
+    void fromStringToMessage(string msg, msg::message& message);
+    void fromStringToCreationMsgBody(string msg, msg::fileCreate& message);
     void getUserConfiguration();
     void handleConnection();
+    void handleFileCreation(msg::message msg);
+
+    void waitForMessage();
 
  /*   /// Reads n bytes from fd.
 bool readNBytes(int fd, void *buf, std::size_t n) {

@@ -1,4 +1,5 @@
 {
     "ip" : "127.0.0.1",
-    "port" : "3524"
+    "port" : "3524",
+    "backupFolder" : "/home/gaetano/Desktop/BackupFolder"
 }

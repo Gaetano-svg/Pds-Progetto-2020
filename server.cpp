@@ -83,15 +83,13 @@ int Server::initLogger(){
                 struct sockaddr* ccaddr = (struct sockaddr*)&caddr;
                 string clientIp = ccaddr -> sa_data;
 
-                pClient client = pClient(new ClientConn(clientIp, this -> logFile, csock, this -> sc));
+                pClient client = pClient(new ClientConn(this -> logFile, csock, this -> sc));
 
-                std::cout << " qua" << std::endl;
                 // this keeps the client alive until it's destroyed
                 clients[csock] = client;
 
                 // handle connection should return immediately
                 client->handleConnection();
-                std::cout << " qua2" << std::endl;
 
             }
 
@@ -131,7 +129,8 @@ int Server::readConfiguration (string file) {
     // save the server configuration inside a local struct
     this -> sc = {
         jServerConf["ip"].get<string>(),
-        jServerConf["port"].get<string>()
+        jServerConf["port"].get<string>(),
+        jServerConf["backupFolder"].get<string>()
     };
 
     return 0;

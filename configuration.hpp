@@ -18,6 +18,7 @@ namespace conf {
 
         std::string ip;
         std::string port;
+        std::string backupFolder;
 
     };
 

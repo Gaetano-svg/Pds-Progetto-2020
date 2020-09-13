@@ -15,7 +15,9 @@ namespace msg {
 
         std::string type;
         int typeCode;
-        std::string body;
+        std::string folderPath;
+        std::string fileName;
+        std::string fileContent;
 
     };
 

@@ -132,11 +132,40 @@ int main()
 
     // Send Configuration 
 
+    msg::connection connMess
+    {
+        jUserConf["name"].get<string>(),
+        jUserConf["folderPath"].get<string>()
+    };
 
+    json jConnMess = json{{"userName", connMess.userName}, {"folderPath", connMess.folderPath}};
 
-        serverThread.join();
-    //string jUcString = jUserConf.dump();
-    //send(sock, jUcString.c_str(), jUcString.length(), 0);
+    string jUcString = jConnMess.dump();
+
+    myLogger -> info("Sending user configuration to server: " + jUcString + " length: " + to_string(jUcString.length()) + " bytes");
+    myLogger -> flush();
+
+    send(sock, jUcString.c_str(), jUcString.length(), 0);
+    sleep(5);
+    // test msgForCreation
+
+    msg::message fc {
+        "creation",
+        3,
+        "test",
+        "test",
+        "test234"
+    };
+    json jMsg = json{{"type", fc.type}, {"typeCode", fc.typeCode}, {"fileName", fc.fileName}, {"folderPath", fc.folderPath}, {"fileContent", fc.fileContent}};
+    string jMsgString = jMsg.dump();
+
+    myLogger -> info("Sending user configuration to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
+    myLogger -> flush(); 
+    send(sock, jMsgString.c_str(), jMsgString.length(), 0);
+
+    serverThread.join();
+
+    cout << "exit" << endl;
 
     // 5. Threads initialization
 
