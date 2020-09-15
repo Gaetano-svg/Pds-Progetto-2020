@@ -42,6 +42,9 @@ public:
     void getUserConfiguration();
     void handleConnection();
     void handleFileCreation(msg::message msg);
+    void handleFileUpdate(msg::message msg);
+    void handleFileDelete(msg::message msg);
+    void handleFileRename(msg::message msg);
 
     void waitForMessage();
 

@@ -149,7 +149,7 @@ int main()
     sleep(5);
     // test msgForCreation
 
-    msg::message fc {
+    /*msg::message fc {
         "creation",
         3,
         "test",
@@ -159,13 +159,85 @@ int main()
     json jMsg = json{{"type", fc.type}, {"typeCode", fc.typeCode}, {"fileName", fc.fileName}, {"folderPath", fc.folderPath}, {"fileContent", fc.fileContent}};
     string jMsgString = jMsg.dump();
 
-    myLogger -> info("Sending user configuration to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
+    myLogger -> info("Sending creation msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
     myLogger -> flush(); 
     send(sock, jMsgString.c_str(), jMsgString.length(), 0);
+    // test msgForCreation
+
+    myLogger -> info("go to sleep for 10 sec; then will send an update message");
+    myLogger -> flush();
+
+    sleep(10);*/
+
+    msg::message fcu {
+        "update",
+        1,
+        "test",
+        "test",
+        "test update chico"
+    };
+    json jMsgU = json{{"type", fcu.type}, {"typeCode", fcu.typeCode}, {"fileName", fcu.fileName}, {"folderPath", fcu.folderPath}, {"fileContent", fcu.fileContent}};
+    string jMsgStringU = jMsgU.dump();
+
+    myLogger -> info("Sending update msg for file to server: " + jMsgStringU + " length: " + to_string(jMsgStringU.length()) + " bytes");
+    myLogger -> flush(); 
+    send(sock, jMsgStringU.c_str(), 1024, 0);
+
+    myLogger -> info("go to sleep for 20 sec; then will send a delete message");
+    myLogger -> flush();
+
+    sleep(20);
+
+    msg::message fcd {
+        "delete",
+        4,
+        "test",
+        "test",
+        ""
+    };
+    json jMsgD = json{{"type", fcd.type}, {"typeCode", fcd.typeCode}, {"fileName", fcd.fileName}, {"folderPath", fcd.folderPath}, {"fileContent", fcd.fileContent}};
+    string jMsgStringD = jMsgD.dump();
+
+    myLogger -> info("Sending update msg for file to server: " + jMsgStringD + " length: " + to_string(jMsgStringD.length()) + " bytes");
+    myLogger -> flush(); 
+    send(sock, jMsgStringD.c_str(), 1024, 0);
+
+    myLogger -> info("go to sleep for 20 sec; then will send a delete message again");
+    myLogger -> flush();
+
+    sleep(20);
+
+    send(sock, jMsgStringD.c_str(), 1024, 0);
+
+    myLogger -> info("go to sleep for 20 sec; then will send a rename message");
+    myLogger -> flush();
+
+    sleep(20);
+    msg::message fcr {
+        "rename",
+        2,
+        "test",
+        "test",
+        "testRenamed"
+    };
+    json jMsgR = json{{"type", fcr.type}, {"typeCode", fcr.typeCode}, {"fileName", fcr.fileName}, {"folderPath", fcr.folderPath}, {"fileContent", fcr.fileContent}};
+    string jMsgStringR = jMsgR.dump();
+
+    ///////////////////////////////////////////////////////////////
+    // bisogna mandare tutta la lunghezza disponibile col socket //
+    ///////////////////////////////////////////////////////////////
+
+    myLogger -> info("Sending update msg for file to server: " + jMsgStringR + " length: " + to_string(jMsgStringR.length()) + " bytes");
+    myLogger -> flush(); 
+    send(sock, jMsgStringR.c_str(), 1024, 0);
 
     serverThread.join();
 
     cout << "exit" << endl;
+
+    //////////////////////////////////////////////////////////////
+    //// si deve implementare la risposta da parte del server ////
+    //////////////////////////////////////////////////////////////
 
     // 5. Threads initialization
 

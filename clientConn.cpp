@@ -76,14 +76,17 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
         while(running){
 
             char buf[MSG_SIZE];
+            memset(buf, 0, 1024);
             msg::message msg;
             
             log -> info ("wait for message from the client");
             log -> flush();
 
-            recv(sock, buf, MSG_SIZE, 0);
+            recv(sock, buf,  MSG_SIZE, 0);
 
-            log -> info ("message received from the client");
+            string sBuf = buf;
+
+            log -> info ("message received from the client " + sBuf);
             log -> flush();
 
             fromStringToMessage(buf, msg);
@@ -93,6 +96,20 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
             // switch case to differentiate different messages
             switch(msg.typeCode){
+                
+                // file update
+                case 1:
+
+                    handleFileUpdate(msg);
+
+                break;
+
+                // file rename
+                case 2:
+
+                    handleFileRename(msg);
+
+                break;
 
                 // file creation
                 case 3:
@@ -101,6 +118,12 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
                 break;
 
+                // file delete
+                case 4:
+
+                    handleFileDelete(msg);
+
+                break;
             }
 
         }
@@ -110,17 +133,179 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
     void ClientConn::handleFileCreation(msg::message msg){
 
         string path = server.backupFolder + "/" + userConf.userName + "/" + msg.folderPath;
-        boost::filesystem::path dstFolder = path;
-        boost::filesystem::create_directories(dstFolder);
+        boost::filesystem::path dstFolder = path, filePath;
+
+        if( ! boost::filesystem::exists(dstFolder))
+            boost::filesystem::create_directories(dstFolder);
 
         path +=  + "/" + msg.fileName;
-                    
-        std::ofstream file(path); //open in constructor
 
-        log -> info("creation of file: " + path + " content: " + msg.fileContent);
+        filePath = path;
+
+        // if the file already exist doesn't need to be created
+        if(boost::filesystem::exists(filePath)){
+            
+            log -> info("the file " + path + " already exists: the output will be redirected on it");
+            log -> flush();
+
+        }
+
+        bool completed = false;
+        while(!completed)
+        {
+            try
+            {
+                std::ofstream file(path); //open in constructor
+                file << msg.fileContent;
+                completed = true;
+            }
+            catch(...) 
+            {
+
+                log -> error("file: " + path + " currently used by others; sleep for 5 seconds and retry later ");
+                log -> flush();
+                sleep(5);
+            }
+        }  
+
+        log -> info("creation of file: " + path);
         log -> flush();
 
-        file << msg.fileContent;
+    }
+
+    void ClientConn::handleFileUpdate(msg::message msg){
+
+        string path = server.backupFolder + "/" + userConf.userName + "/" + msg.folderPath;
+        boost::filesystem::path dstFolder = path, filePath;
+
+        if( ! boost::filesystem::exists(dstFolder))
+            boost::filesystem::create_directories(dstFolder);
+        
+        path +=  + "/" + msg.fileName;
+        
+        filePath = path;
+
+        // if the file already doesn't exist must be created 
+        if(!boost::filesystem::exists(filePath)){
+            
+            log -> info("the file " + path + " doesn't exist: the output will be redirected on it");
+            log -> flush();
+
+        }
+       
+        bool completed = false;
+        while(!completed)
+        {
+            try
+            {
+                std::ofstream file(path); //open in constructor
+                file << msg.fileContent;
+                completed = true;
+            }
+            catch(...) 
+            {
+
+                log -> error("file: " + path + " currently used by others; sleep for 5 seconds and retry later ");
+                log -> flush();
+                sleep(5);
+            }
+        }             
+
+        log -> info("update of file: " + path);
+        log -> flush();
+
+
+    }
+
+    void ClientConn::handleFileRename(msg::message msg){
+
+        string path = server.backupFolder + "/" + userConf.userName + "/" + msg.folderPath;
+        boost::filesystem::path dstFolder = path;
+
+        string oldPathString, newPathString;
+
+        // if the path doesn't exist return because there isn't any files inside
+        if( ! boost::filesystem::exists(dstFolder))
+            return;
+
+        oldPathString = path + "/" + msg.fileName;
+        newPathString = path + "/" + msg.fileContent;
+
+        boost::filesystem::path oldPath = oldPathString;
+        boost::filesystem::path newPath = newPathString;
+
+        // if the file doesn't exist return 
+        if( ! boost::filesystem::exists(oldPath)) {
+
+                log -> error("file: " + oldPathString + " doesn't exist!");
+                log -> flush();
+            return;
+        }
+
+        bool completed = false;
+        while(!completed)
+        {
+            try
+            {
+                boost::filesystem::rename(oldPath, newPath);
+                completed = true;
+            }
+            catch(...) 
+            {
+
+                log -> error("file: " + oldPathString + " currently used by others; sleep for 5 seconds and retry later ");
+                log -> flush();
+                sleep(5);
+            }
+        }
+
+        log -> info("rename of file: " + oldPathString + " into " + newPathString + " completed ");
+        log -> flush();
+
+    }
+
+    void ClientConn::handleFileDelete(msg::message msg){
+
+        string path = server.backupFolder + "/" + userConf.userName + "/" + msg.folderPath;
+        boost::filesystem::path dstFolder = path;
+
+        // if the path doesn't exist return because there isn't any files inside
+        if( ! boost::filesystem::exists(dstFolder))
+            return;
+
+        path +=  + "/" + msg.fileName;
+        //newPathString = path + "/" + msg.fileContent;
+
+        boost::filesystem::path oldPath = path;
+
+        // if the file doesn't exist return 
+        if( ! boost::filesystem::exists(oldPath)) {
+
+                log -> error("file: " + path + " doesn't exist!");
+                log -> flush();
+                return;
+        }
+
+
+        bool completed = false;
+        while(!completed)
+        {
+            try
+            {
+                boost::filesystem::remove_all(path);
+                completed = true;
+            }
+            catch(...) 
+            {
+
+                log -> error("file: " + path + " currently used by others; sleep for 5 seconds and retry later ");
+                log -> flush();
+                sleep(5);
+            }
+        }
+
+        log -> info("delete of file: " + path + " completed ");
+        log -> flush();
 
     }
 
