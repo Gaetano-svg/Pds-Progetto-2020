@@ -145,43 +145,51 @@ int main()
     myLogger -> info("Sending user configuration to server: " + jUcString + " length: " + to_string(jUcString.length()) + " bytes");
     myLogger -> flush();
 
-    send(sock, jUcString.c_str(), jUcString.length(), 0);
-    sleep(5);
-    // test msgForCreation
+    send(sock, jUcString.c_str(), 1024, 0);
+    sleep(20);
 
-    /*msg::message fc {
-        "creation",
-        3,
-        "test",
-        "test",
-        "test234"
-    };
-    json jMsg = json{{"type", fc.type}, {"typeCode", fc.typeCode}, {"fileName", fc.fileName}, {"folderPath", fc.folderPath}, {"fileContent", fc.fileContent}};
-    string jMsgString = jMsg.dump();
+    msg::message responseMsg;
+    char responseChar[1024];
 
-    myLogger -> info("Sending creation msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
-    myLogger -> flush(); 
-    send(sock, jMsgString.c_str(), jMsgString.length(), 0);
-    // test msgForCreation
+            memset(responseChar, 0, 1024);
+    recv(sock, responseChar,  1024, 0);
+    string responseString = responseChar;
 
-    myLogger -> info("go to sleep for 10 sec; then will send an update message");
+    myLogger -> info("message received: " + responseString);
     myLogger -> flush();
-
-    sleep(10);*/
 
     msg::message fcu {
         "update",
-        1,
+        3,
         "test",
         "test",
-        "test update chico"
+        "test create chico"
     };
     json jMsgU = json{{"type", fcu.type}, {"typeCode", fcu.typeCode}, {"fileName", fcu.fileName}, {"folderPath", fcu.folderPath}, {"fileContent", fcu.fileContent}};
     string jMsgStringU = jMsgU.dump();
 
-    myLogger -> info("Sending update msg for file to server: " + jMsgStringU + " length: " + to_string(jMsgStringU.length()) + " bytes");
+    myLogger -> info("Sending create msg for file to server: " + jMsgStringU + " length: " + to_string(jMsgStringU.length()) + " bytes");
     myLogger -> flush(); 
     send(sock, jMsgStringU.c_str(), 1024, 0);
+    
+    myLogger -> info("wait For response");
+    myLogger -> flush();
+
+            memset(responseChar, 0, 1024);
+    recv(sock, responseChar,  1024, 0);
+    responseString = responseChar;
+
+    myLogger -> info("message received: " + responseString);
+    myLogger -> flush();
+
+        auto jsonMSG = json::parse(responseChar);
+
+        jsonMSG.at("type").get_to(responseMsg.type);
+        jsonMSG.at("typeCode").get_to(responseMsg.typeCode);
+        jsonMSG.at("folderPath").get_to(responseMsg.folderPath);
+        jsonMSG.at("fileName").get_to(responseMsg.fileName);
+        jsonMSG.at("fileContent").get_to(responseMsg.fileContent);
+
 
     myLogger -> info("go to sleep for 20 sec; then will send a delete message");
     myLogger -> flush();
@@ -202,12 +210,25 @@ int main()
     myLogger -> flush(); 
     send(sock, jMsgStringD.c_str(), 1024, 0);
 
+    myLogger -> info("wait For response");
+    myLogger -> flush();
+
+            memset(responseChar, 0, 1024);
+    recv(sock, responseChar,  1024, 0);
+    responseString = responseChar;
     myLogger -> info("go to sleep for 20 sec; then will send a delete message again");
     myLogger -> flush();
 
     sleep(20);
 
     send(sock, jMsgStringD.c_str(), 1024, 0);
+
+    myLogger -> info("wait For response");
+    myLogger -> flush();
+
+            memset(responseChar, 0, 1024);
+    recv(sock, responseChar,  1024, 0);
+    responseString = responseChar;
 
     myLogger -> info("go to sleep for 20 sec; then will send a rename message");
     myLogger -> flush();
@@ -231,6 +252,13 @@ int main()
     myLogger -> flush(); 
     send(sock, jMsgStringR.c_str(), 1024, 0);
 
+    myLogger -> info("wait For response");
+    myLogger -> flush();
+
+            memset(responseChar, 0, 1024);
+    recv(sock, responseChar,  1024, 0);
+    responseString = responseChar;
+
     serverThread.join();
 
     cout << "exit" << endl;
@@ -238,6 +266,10 @@ int main()
     //////////////////////////////////////////////////////////////
     //// si deve implementare la risposta da parte del server ////
     //////////////////////////////////////////////////////////////
+
+    //////////////////////////////////////////////////////////////////////////////
+    //// implementare logica invio pacchetti per lunghezza multipla di 1024 B ////
+    //////////////////////////////////////////////////////////////////////////////
 
     // 5. Threads initialization
 

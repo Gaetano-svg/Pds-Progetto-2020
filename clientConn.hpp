@@ -36,15 +36,19 @@ public:
 
     ClientConn(string& logFile, int& sock, conf::server server);
     int initLogger();
-    void fromStringToUserConf(string uc, msg::connection& userConf);
-    void fromStringToMessage(string msg, msg::message& message);
+    int fromStringToUserConf(string uc, msg::connection& userConf);
+    int fromStringToMessage(string msg, msg::message& message);
     void fromStringToCreationMsgBody(string msg, msg::fileCreate& message);
     void getUserConfiguration();
     void handleConnection();
-    void handleFileCreation(msg::message msg);
-    void handleFileUpdate(msg::message msg);
-    void handleFileDelete(msg::message msg);
-    void handleFileRename(msg::message msg);
+    int handleFileCreation(msg::message msg);
+    int handleFileUpdate(msg::message msg);
+    int handleFileDelete(msg::message msg);
+    int handleFileRename(msg::message msg);
+
+    void fromMessageToString(string & messageString, msg::message & msg);
+    void handleOkResponse(msg::message & response, msg::message &  msg);
+    void handleErrorResponse(msg::message &  response, msg::message & msg, int errorCode);
 
     void waitForMessage();
 

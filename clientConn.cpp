@@ -28,24 +28,55 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
     }
 
-    void ClientConn::fromStringToUserConf(string uc, msg::connection& userConf){
+    void ClientConn::fromMessageToString(string & messageString, msg::message & msg){
 
-        auto jsonUC = json::parse(uc);
-
-        jsonUC.at("userName").get_to(userConf.userName);
-        jsonUC.at("folderPath").get_to(userConf.folderPath);
+        json jMsg = json{{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"fileContent", msg.fileContent}};
+        messageString = jMsg.dump();
 
     }
 
-    void ClientConn::fromStringToMessage(string msg, msg::message& message){
+    int ClientConn::fromStringToUserConf(string uc, msg::connection& userConf){
 
-        auto jsonMSG = json::parse(msg);
+        try {
 
-        jsonMSG.at("type").get_to(message.type);
-        jsonMSG.at("typeCode").get_to(message.typeCode);
-        jsonMSG.at("folderPath").get_to(message.folderPath);
-        jsonMSG.at("fileName").get_to(message.fileName);
-        jsonMSG.at("fileContent").get_to(message.fileContent);
+            auto jsonUC = json::parse(uc);
+
+            jsonUC.at("userName").get_to(userConf.userName);
+            jsonUC.at("folderPath").get_to(userConf.folderPath);
+
+        } catch (...) {
+
+            log -> error ("An error appened parsing the user configuration received: " + uc);
+            log -> flush();
+            return -11;
+
+        }
+
+        return 0;
+
+    }
+
+    int ClientConn::fromStringToMessage(string msg, msg::message& message){
+
+        try {
+
+            auto jsonMSG = json::parse(msg);
+
+            jsonMSG.at("type").get_to(message.type);
+            jsonMSG.at("typeCode").get_to(message.typeCode);
+            jsonMSG.at("folderPath").get_to(message.folderPath);
+            jsonMSG.at("fileName").get_to(message.fileName);
+            jsonMSG.at("fileContent").get_to(message.fileContent);
+
+        } catch (...) {
+
+            log -> error ("An error appened parsing the message received: " + msg);
+            log -> flush();
+            return -10;
+
+        }
+
+        return 0;
 
     }
 
@@ -64,10 +95,32 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
     void ClientConn::getUserConfiguration(){
 
         char buf[MSG_SIZE];
-        
+        memset(buf, 0, 1024);
+
+        msg::message msg, response;
+        string responseString;
+
         recv(sock, buf, MSG_SIZE, 0);
-        
-        fromStringToUserConf(buf, this -> userConf);
+
+        int resCode = fromStringToUserConf(buf, this -> userConf);
+
+            response.folderPath = "";
+            response.fileContent = "";
+            response.fileName = "";
+
+        if(resCode == 0){
+            response.typeCode = 0;
+            response.type = "Ok";
+        }
+                        
+        else {
+            response.typeCode = -1;
+            response.type = "Error parsing user configuration";
+        }
+
+        fromMessageToString(responseString, response);
+
+        send(sock, responseString.c_str(), 1024, 0);
         
     }
 
@@ -78,59 +131,127 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
             char buf[MSG_SIZE];
             memset(buf, 0, 1024);
             msg::message msg;
+            int resCode;
+
+            // declaration of response message
+            msg::message response;
             
             log -> info ("wait for message from the client");
             log -> flush();
 
+            // implementare qui logica per ricevere messaggi multipli di 1024 Bytes
+            // e creare per l'appunto un metodo apposito per ricevere lunghezza e poi 
+            // ricevere il messaggio
             recv(sock, buf,  MSG_SIZE, 0);
 
             string sBuf = buf;
+            string responseString;
 
             log -> info ("message received from the client " + sBuf);
             log -> flush();
 
-            fromStringToMessage(buf, msg);
+            resCode = fromStringToMessage(buf, msg);
 
-            log -> info ("message parsed" );
-            log -> flush();
-
-            // switch case to differentiate different messages
-            switch(msg.typeCode){
+            if(resCode == 0){
                 
-                // file update
-                case 1:
+                log -> info ("message parsed" );
+                log -> flush();
 
-                    handleFileUpdate(msg);
+                // switch case to differentiate different messages
+                switch(msg.typeCode){
+                    
+                    // file update
+                    case 1:
 
-                break;
+                        resCode = handleFileUpdate(msg);
 
-                // file rename
-                case 2:
+                    break;
 
-                    handleFileRename(msg);
+                    // file rename
+                    case 2:
 
-                break;
+                        resCode = handleFileRename(msg);
 
-                // file creation
-                case 3:
+                    break;
 
-                    handleFileCreation(msg);
+                    // file creation
+                    case 3:
 
-                break;
+                        resCode = handleFileCreation(msg);
 
-                // file delete
-                case 4:
+                    break;
 
-                    handleFileDelete(msg);
+                    // file delete
+                    case 4:
 
-                break;
+                        resCode = handleFileDelete(msg);
+
+                    break;
+                }
+
             }
+            
+            if(resCode == 0)
+                handleOkResponse(response, msg);
+                        
+            else 
+                handleErrorResponse(response, msg, resCode);
+
+            fromMessageToString(responseString, response);
+
+            log -> info ("response sent: " + responseString );
+            log -> flush();
+            send(sock, responseString.c_str(), 1024, 0);
 
         }
         
     }
 
-    void ClientConn::handleFileCreation(msg::message msg){
+    void ClientConn::handleOkResponse(msg::message & response, msg::message & msg){
+
+        response.type = "ok";
+        response.typeCode = 0;
+        response.folderPath = msg.folderPath;
+        response.fileName = msg.fileName;
+        response.fileContent = "";
+
+    }
+
+    void ClientConn::handleErrorResponse(msg::message & response, msg::message & msg, int errorCode){
+
+
+        response.typeCode = errorCode;
+        response.folderPath = msg.folderPath;
+        response.fileName = msg.fileName;
+
+        switch(errorCode){
+
+            case -1:
+                response.type = "missingFolderError";
+                response.fileContent = "Folder doesn't exist!";
+            break;
+
+
+            case -2:
+                response.type = "missingFileError";
+                response.fileContent = "File doesn't exist!";
+            break;
+
+            case -10:
+                response.type = "messageParsingStringError";
+                response.fileContent = "An error happened during the parsing of the message received from the client";
+            break;
+
+            case -11:
+                response.type = "userConfigurationParsingStringError";
+                response.fileContent = "An error happened during the parsing of the user configuration received from the client";
+            break;
+
+        }
+
+    }
+
+    int ClientConn::handleFileCreation(msg::message msg){
 
         string path = server.backupFolder + "/" + userConf.userName + "/" + msg.folderPath;
         boost::filesystem::path dstFolder = path, filePath;
@@ -171,9 +292,11 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
         log -> info("creation of file: " + path);
         log -> flush();
 
+        return 0;
+
     }
 
-    void ClientConn::handleFileUpdate(msg::message msg){
+    int ClientConn::handleFileUpdate(msg::message msg){
 
         string path = server.backupFolder + "/" + userConf.userName + "/" + msg.folderPath;
         boost::filesystem::path dstFolder = path, filePath;
@@ -214,10 +337,11 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
         log -> info("update of file: " + path);
         log -> flush();
 
+        return 0;
 
     }
 
-    void ClientConn::handleFileRename(msg::message msg){
+    int ClientConn::handleFileRename(msg::message msg){
 
         string path = server.backupFolder + "/" + userConf.userName + "/" + msg.folderPath;
         boost::filesystem::path dstFolder = path;
@@ -226,7 +350,7 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
         // if the path doesn't exist return because there isn't any files inside
         if( ! boost::filesystem::exists(dstFolder))
-            return;
+            return -1;
 
         oldPathString = path + "/" + msg.fileName;
         newPathString = path + "/" + msg.fileContent;
@@ -239,7 +363,7 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
                 log -> error("file: " + oldPathString + " doesn't exist!");
                 log -> flush();
-            return;
+            return -2;
         }
 
         bool completed = false;
@@ -262,16 +386,18 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
         log -> info("rename of file: " + oldPathString + " into " + newPathString + " completed ");
         log -> flush();
 
+        return 0;
+
     }
 
-    void ClientConn::handleFileDelete(msg::message msg){
+    int ClientConn::handleFileDelete(msg::message msg){
 
         string path = server.backupFolder + "/" + userConf.userName + "/" + msg.folderPath;
         boost::filesystem::path dstFolder = path;
 
         // if the path doesn't exist return because there isn't any files inside
         if( ! boost::filesystem::exists(dstFolder))
-            return;
+            return -1; // folder doesn't exist
 
         path +=  + "/" + msg.fileName;
         //newPathString = path + "/" + msg.fileContent;
@@ -283,7 +409,7 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
                 log -> error("file: " + path + " doesn't exist!");
                 log -> flush();
-                return;
+                return -2; // file doesn't exist
         }
 
 
@@ -306,6 +432,8 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
         log -> info("delete of file: " + path + " completed ");
         log -> flush();
+
+        return 0;
 
     }
 

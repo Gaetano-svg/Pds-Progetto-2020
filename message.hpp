@@ -21,6 +21,14 @@ namespace msg {
 
     };
 
+    //////////////////////////////
+    ///*** RESPONSE MESSAGE ***///
+    //////////////////////////////
+
+    // 0. OK -> la richiesta ricevuta è stata completata correttamente 
+    // -1. PATH DOESN'T EXIST
+    // -2. FILE DOESN'T EXIST
+
     ////////////////////////
     //*** FILE MESSAGE **///
     ////////////////////////
