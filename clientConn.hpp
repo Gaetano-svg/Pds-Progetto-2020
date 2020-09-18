@@ -46,50 +46,14 @@ public:
     int handleFileDelete(msg::message msg);
     int handleFileRename(msg::message msg);
 
+    
+    string readMessage(int fd);
+    bool readNBytes(int fd, void *buf, std::size_t n);
+
     void fromMessageToString(string & messageString, msg::message & msg);
     void handleOkResponse(msg::message & response, msg::message &  msg);
     void handleErrorResponse(msg::message &  response, msg::message & msg, int errorCode);
 
     void waitForMessage();
-
- /*   /// Reads n bytes from fd.
-bool readNBytes(int fd, void *buf, std::size_t n) {
-    std::size_t offset = 0;
-    char *cbuf = reinterpret_cast<char*>(buf);
-    while (true) {
-        ssize_t ret = recv(fd, cbuf + offset, n - offset, MSG_WAITALL);
-        if (ret < 0) {
-            if (errno != EINTR) {
-                // Error occurred
-                throw IOException(strerror(errno));
-            }
-        } else if (ret == 0) {
-            // No data available anymore
-            if (offset == 0) return false;
-            else             throw ProtocolException("Unexpected end of stream");
-        } else if (offset + ret == n) {
-            // All n bytes read
-            return true;
-        } else {
-            offset += ret;
-        }
-    }
-}
-
-/// Reads message from fd
-std::vector<char> readMessage(int fd) {
-    std::uint64_t size;
-    if (readNBytes(fd, &size, sizeof(size))) {
-        std::vector buf(size);
-        if (readNBytes(fd, buf.data(), size)) {
-            return buf;
-        } else {
-            throw ProtocolException("Unexpected end of stream");
-        }
-    } else {
-        // connection was closed
-        return std::vector<char>();
-    }
-}*/
 
 };

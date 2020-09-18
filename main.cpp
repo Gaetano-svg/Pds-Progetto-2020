@@ -18,6 +18,55 @@ using pClient = std::shared_ptr<ClientConn>;
 using namespace std;
 using json = nlohmann::json;
 
+std::shared_ptr <spdlog::logger> myLogger;
+
+      /// Reads n bytes from fd.
+    bool readNBytes(int fd, void *buf, std::size_t n) {
+        std::size_t offset = 0;
+        char *cbuf = reinterpret_cast<char*>(buf);
+        while (true) {
+            ssize_t ret = recv(fd, cbuf + offset, n - offset, MSG_WAITALL);
+            if (ret < 0) {
+                if (errno != EINTR) {
+                    // Error occurred
+                    //throw IOException(strerror(errno));
+                    return false;
+                }
+            } else if (ret == 0) {
+                // No data available anymore
+                if (offset == 0) return false;
+                else             return false;//throw ProtocolException("Unexpected end of stream");
+            } else if (offset + ret == n) {
+                // All n bytes read
+                return true;
+            } else {
+                offset += ret;
+            }
+        }
+    }
+
+    /// Reads message from fd
+    string readResponse(int fd) {
+        uint64_t size;
+        std::string bufString;
+            myLogger -> info("wait for length ");
+        if (readNBytes(fd, &size, sizeof(size))) {
+
+            myLogger -> info("size Risposta ricevuta " + to_string(size));
+            char buf[size];
+            memset(buf, 0, size);
+            if (readNBytes(fd, buf, size)) {
+                bufString = buf;
+                myLogger -> info("Risposta ricevuta " + bufString);
+            } else {
+                //throw ProtocolException("Unexpected end of stream");
+                bufString = buf;
+            }
+        }
+
+        return bufString;
+    }
+
 // per ora stiamo considerando un solo utente e un solo folder
 
 // in futuro dovremo gestire un array di utenti e per ciascuno un solo folder (o array di folder)
@@ -72,8 +121,6 @@ int main()
     };
 
     // 2. Logger initialization
-
-    std::shared_ptr <spdlog::logger> myLogger;
 
     try 
     {
@@ -151,7 +198,7 @@ int main()
     msg::message responseMsg;
     char responseChar[1024];
 
-            memset(responseChar, 0, 1024);
+    memset(responseChar, 0, 1024);
     recv(sock, responseChar,  1024, 0);
     string responseString = responseChar;
 
@@ -167,22 +214,29 @@ int main()
     };
     json jMsgU = json{{"type", fcu.type}, {"typeCode", fcu.typeCode}, {"fileName", fcu.fileName}, {"folderPath", fcu.folderPath}, {"fileContent", fcu.fileContent}};
     string jMsgStringU = jMsgU.dump();
+    uint64_t sizeNumber = jMsgStringU.length();
+
+    myLogger -> info("Sending create SIZE msg for file to server: " + to_string(jMsgStringU.length()) + " bytes");
+    myLogger -> flush(); 
+    
+    send(sock, &sizeNumber, sizeof(sizeNumber), 0);
 
     myLogger -> info("Sending create msg for file to server: " + jMsgStringU + " length: " + to_string(jMsgStringU.length()) + " bytes");
     myLogger -> flush(); 
-    send(sock, jMsgStringU.c_str(), 1024, 0);
+
+    send(sock, jMsgStringU.c_str(), sizeNumber, 0);
     
     myLogger -> info("wait For response");
     myLogger -> flush();
-
-            memset(responseChar, 0, 1024);
-    recv(sock, responseChar,  1024, 0);
-    responseString = responseChar;
+/*
+    memset(responseChar, 0, 1024);
+    recv(sock, responseChar,  1024, 0);*/
+    responseString = readResponse(sock);
 
     myLogger -> info("message received: " + responseString);
     myLogger -> flush();
 
-        auto jsonMSG = json::parse(responseChar);
+/*        auto jsonMSG = json::parse(responseChar);
 
         jsonMSG.at("type").get_to(responseMsg.type);
         jsonMSG.at("typeCode").get_to(responseMsg.typeCode);
@@ -258,7 +312,7 @@ int main()
             memset(responseChar, 0, 1024);
     recv(sock, responseChar,  1024, 0);
     responseString = responseChar;
-
+*/
     serverThread.join();
 
     cout << "exit" << endl;

@@ -1,6 +1,7 @@
 
 #include "clientConn.hpp"
 #include <algorithm>
+#include <vector>
 
 #define MSG_SIZE 1024
 
@@ -124,14 +125,62 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
         
     }
 
+      /// Reads n bytes from fd.
+    bool ClientConn::readNBytes(int fd, void *buf, std::size_t n) {
+        std::size_t offset = 0;
+        char *cbuf = reinterpret_cast<char*>(buf);
+        while (true) {
+            ssize_t ret = recv(fd, cbuf + offset, n - offset, MSG_WAITALL);
+            if (ret < 0) {
+                if (errno != EINTR) {
+                    // Error occurred
+                    //throw IOException(strerror(errno));
+                    return false;
+                }
+            } else if (ret == 0) {
+                // No data available anymore
+                if (offset == 0) return false;
+                else             return false;//throw ProtocolException("Unexpected end of stream");
+            } else if (offset + ret == n) {
+                // All n bytes read
+                return true;
+            } else {
+                offset += ret;
+            }
+        }
+    }
+
+    /// Reads message from fd
+    string ClientConn::readMessage(int fd) {
+        uint64_t size;
+        std::string bufString;
+            log -> info("wait for length ");
+        if (readNBytes(fd, &size, sizeof(size))) {
+
+            log -> info("size ricevuto " + to_string(size));
+            char buf[size];
+            memset(buf, 0, size);
+            if (readNBytes(fd, buf, size)) {
+                bufString = buf;
+                log -> info("Messaggio ricevuto " + bufString);
+            } else {
+                //throw ProtocolException("Unexpected end of stream");
+                bufString = buf;
+            }
+        }
+
+        return bufString;
+    }
+
     void ClientConn::waitForMessage(){
 
         while(running){
 
-            char buf[MSG_SIZE];
-            memset(buf, 0, 1024);
+            /*char buf[MSG_SIZE];
+            memset(buf, 0, 1024);*/
             msg::message msg;
             int resCode;
+            uint64_t sizeNumber;
 
             // declaration of response message
             msg::message response;
@@ -142,7 +191,8 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
             // implementare qui logica per ricevere messaggi multipli di 1024 Bytes
             // e creare per l'appunto un metodo apposito per ricevere lunghezza e poi 
             // ricevere il messaggio
-            recv(sock, buf,  MSG_SIZE, 0);
+            //recv(sock, buf,  MSG_SIZE, 0);
+            string buf = readMessage(sock);
 
             string sBuf = buf;
             string responseString;
@@ -199,9 +249,15 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
             fromMessageToString(responseString, response);
 
+            // send LENGTH of response
+            sizeNumber = responseString.length();
+            send(sock, &sizeNumber, sizeof(sizeNumber), 0);
+
+            // send STRING response
+            send(sock, responseString.c_str(), sizeNumber, 0);
+            
             log -> info ("response sent: " + responseString );
             log -> flush();
-            send(sock, responseString.c_str(), 1024, 0);
 
         }
         
