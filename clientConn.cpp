@@ -2,6 +2,7 @@
 #include "clientConn.hpp"
 #include <algorithm>
 #include <vector>
+#include <arpa/inet.h>
 
 #define MSG_SIZE 1024
 
@@ -84,7 +85,7 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
     void ClientConn::fromStringToCreationMsgBody(string msg, msg::fileCreate& message){
 
         msg.erase(std::remove(msg.begin(), msg.end(), '\\'), msg.end());
-        std::cout << msg << std::endl;
+        
         auto jsonMSG = json::parse(msg);
 
         jsonMSG.at("folderPath").get_to(message.folderPath);
@@ -93,17 +94,16 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
     }
 
-    void ClientConn::getUserConfiguration(){
-
-        char buf[MSG_SIZE];
-        memset(buf, 0, 1024);
+    void ClientConn::waitUserConfiguration(){
 
         msg::message msg, response;
-        string responseString;
+        string responseString, bufString;
 
-        recv(sock, buf, MSG_SIZE, 0);
+        bufString = readUserConfiguration(sock);
 
-        int resCode = fromStringToUserConf(buf, this -> userConf);
+        //log -> info("received user configuration: " + bufString);
+
+        int resCode = fromStringToUserConf(bufString, this -> userConf);
 
             response.folderPath = "";
             response.fileContent = "";
@@ -119,14 +119,20 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
             response.type = "Error parsing user configuration";
         }
 
-        fromMessageToString(responseString, response);
+            fromMessageToString(responseString, response);
 
-        send(sock, responseString.c_str(), 1024, 0);
-        
+            // send LENGTH of response
+            uint64_t sizeNumber = responseString.length();
+            send(sock, &sizeNumber, sizeof(sizeNumber), 0);
+
+            // send STRING response
+            send(sock, responseString.c_str(), sizeNumber, 0);
+
     }
 
       /// Reads n bytes from fd.
     bool ClientConn::readNBytes(int fd, void *buf, std::size_t n) {
+
         std::size_t offset = 0;
         char *cbuf = reinterpret_cast<char*>(buf);
         while (true) {
@@ -152,32 +158,74 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
     /// Reads message from fd
     string ClientConn::readMessage(int fd) {
-        uint64_t size;
-        std::string bufString;
-            log -> info("wait for length ");
-        if (readNBytes(fd, &size, sizeof(size))) {
+        
+        uint64_t rcvDataLength;
+        string bufString;
+        std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
+        std::string receivedString;                        // assign buffered data to a 
 
-            log -> info("size ricevuto " + to_string(size));
-            char buf[size];
-            memset(buf, 0, size);
-            if (readNBytes(fd, buf, size)) {
-                bufString = buf;
-                log -> info("Messaggio ricevuto " + bufString);
-            } else {
-                //throw ProtocolException("Unexpected end of stream");
-                bufString = buf;
-            }
-        }
+        recv(fd,&rcvDataLength,sizeof(uint64_t),0); // Receive the message length
+        rcvBuf.resize(rcvDataLength,0x00); // with the necessary size
 
+        log -> info ("message size received: " + to_string(rcvDataLength));
+
+        recv(fd,&(rcvBuf[0]),rcvDataLength,0); // Receive the string data
+        receivedString.assign(rcvBuf.begin(), rcvBuf.end());
+
+        log -> info ("message received: " + receivedString);
+
+        bufString = receivedString.c_str();
         return bufString;
+
+    }
+
+    string ClientConn::readUserConfiguration(int fd) {
+        
+        uint64_t rcvDataLength;
+        string bufString;
+        std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
+        std::string receivedString;                        // assign buffered data to a 
+
+        recv(fd,&rcvDataLength,sizeof(uint64_t),0); // Receive the message length
+        rcvBuf.resize(rcvDataLength,0x00); // with the necessary size
+
+        recv(fd,&(rcvBuf[0]),rcvDataLength,0); // Receive the string data
+        receivedString.assign(rcvBuf.begin(), rcvBuf.end());
+
+        bufString = receivedString.c_str();
+        return bufString;
+
+    }
+
+    void ClientConn::sendResponse(int resCode, msg::message msg) {
+        
+        msg::message response;
+        string responseString;
+
+            if(resCode == 0)
+                handleOkResponse(response, msg);
+                        
+            else 
+                handleErrorResponse(response, msg, resCode);
+
+            fromMessageToString(responseString, response);
+
+            // send LENGTH of response
+            uint64_t sizeNumber = responseString.length();
+            send(sock, &sizeNumber, sizeof(sizeNumber), 0);
+
+            // send STRING response
+            send(sock, responseString.c_str(), sizeNumber, 0);
+            
+            log -> info ("response sent: " + responseString );
+            log -> flush();
+
     }
 
     void ClientConn::waitForMessage(){
 
         while(running){
 
-            /*char buf[MSG_SIZE];
-            memset(buf, 0, 1024);*/
             msg::message msg;
             int resCode;
             uint64_t sizeNumber;
@@ -188,10 +236,6 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
             log -> info ("wait for message from the client");
             log -> flush();
 
-            // implementare qui logica per ricevere messaggi multipli di 1024 Bytes
-            // e creare per l'appunto un metodo apposito per ricevere lunghezza e poi 
-            // ricevere il messaggio
-            //recv(sock, buf,  MSG_SIZE, 0);
             string buf = readMessage(sock);
 
             string sBuf = buf;
@@ -207,7 +251,6 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
                 log -> info ("message parsed" );
                 log -> flush();
 
-                // switch case to differentiate different messages
                 switch(msg.typeCode){
                     
                     // file update
@@ -240,25 +283,9 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
                 }
 
             }
+
+            sendResponse(resCode, msg);
             
-            if(resCode == 0)
-                handleOkResponse(response, msg);
-                        
-            else 
-                handleErrorResponse(response, msg, resCode);
-
-            fromMessageToString(responseString, response);
-
-            // send LENGTH of response
-            sizeNumber = responseString.length();
-            send(sock, &sizeNumber, sizeof(sizeNumber), 0);
-
-            // send STRING response
-            send(sock, responseString.c_str(), sizeNumber, 0);
-            
-            log -> info ("response sent: " + responseString );
-            log -> flush();
-
         }
         
     }
@@ -505,7 +532,7 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
             // even if it's removed from the clients map (we "abuse" of RAII)
 
             // first of all, get the user configuration
-            getUserConfiguration();
+            waitUserConfiguration();
 
             // set logger for client connection using the server log file
             initLogger();

@@ -94,6 +94,7 @@ int Server::initLogger(){
             }
 
         }
+        std::cout << "exited" << std::endl;
         return 0;
 
     }

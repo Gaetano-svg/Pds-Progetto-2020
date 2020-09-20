@@ -14,7 +14,6 @@ using namespace std;
 using namespace nlohmann;
 using json = nlohmann::json;
 
-using namespace std;
 enum ClientStatus {
     starting, active, terminating
 };
@@ -35,25 +34,31 @@ public:
     shared_ptr <spdlog::logger> log;
 
     ClientConn(string& logFile, int& sock, conf::server server);
-    int initLogger();
-    int fromStringToUserConf(string uc, msg::connection& userConf);
-    int fromStringToMessage(string msg, msg::message& message);
-    void fromStringToCreationMsgBody(string msg, msg::fileCreate& message);
-    void getUserConfiguration();
+
     void handleConnection();
+
+    void waitUserConfiguration();
+    int initLogger();
+    void waitForMessage();
+
+    string readUserConfiguration(int fd);
+    int fromStringToUserConf(string uc, msg::connection& userConf);
+
+    string readMessage(int fd);
+    int fromStringToMessage(string msg, msg::message& message);
+    void fromMessageToString(string & messageString, msg::message & msg);
     int handleFileCreation(msg::message msg);
     int handleFileUpdate(msg::message msg);
     int handleFileDelete(msg::message msg);
     int handleFileRename(msg::message msg);
 
+    void sendResponse(int resCode, msg::message msg );
     
-    string readMessage(int fd);
-    bool readNBytes(int fd, void *buf, std::size_t n);
-
-    void fromMessageToString(string & messageString, msg::message & msg);
     void handleOkResponse(msg::message & response, msg::message &  msg);
     void handleErrorResponse(msg::message &  response, msg::message & msg, int errorCode);
 
-    void waitForMessage();
+    void fromStringToCreationMsgBody(string msg, msg::fileCreate& message);
+    
+    bool readNBytes(int fd, void *buf, std::size_t n);
 
 };

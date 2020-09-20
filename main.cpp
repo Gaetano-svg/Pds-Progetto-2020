@@ -82,18 +82,18 @@ int main()
     //server.readUsersPath();
     server.initLogger();
 
-        std::thread serverThread([&server](){
-            // this keeps the ChatClient alive until the we dont't exit the thread
-            // even if it's removed from the clients map (we "abuse" of RAII)
+    server.startListening();
 
-            server.startListening();
 
-            
-        });
-
+/*
+    Client client;
+    client.readConfiguration();
+    client.initLogger();
+    client.serverConnection();
+    client.sendConfiguration();*/
 
     // 1. Read USER configuration file in the local folder
-
+/*
     std::ifstream userConfFile("userConfiguration.json");
 
     if(!userConfFile)
@@ -205,7 +205,7 @@ int main()
     myLogger -> info("message received: " + responseString);
     myLogger -> flush();
 
-    msg::message fcu {
+    /*msg::message fcu {
         "update",
         3,
         "test",
@@ -227,14 +227,14 @@ int main()
     send(sock, jMsgStringU.c_str(), sizeNumber, 0);
     
     myLogger -> info("wait For response");
-    myLogger -> flush();
+    myLogger -> flush();*/
 /*
     memset(responseChar, 0, 1024);
     recv(sock, responseChar,  1024, 0);*/
-    responseString = readResponse(sock);
+    /*responseString = readResponse(sock);
 
     myLogger -> info("message received: " + responseString);
-    myLogger -> flush();
+    myLogger -> flush();*/
 
 /*        auto jsonMSG = json::parse(responseChar);
 
@@ -313,7 +313,6 @@ int main()
     recv(sock, responseChar,  1024, 0);
     responseString = responseChar;
 */
-    serverThread.join();
 
     cout << "exit" << endl;
 
