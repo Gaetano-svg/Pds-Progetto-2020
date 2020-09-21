@@ -29,13 +29,11 @@ public:
     int serverConnection();
 
     int sendConfiguration();
-    string readConfigurationResponse (int fd);
-
     int sendMessage(msg::message msg);
-    string readMessageResponse (int fd);
+
+    int readConfigurationResponse (string & response);
+    int readMessageResponse (string & response);
     
     int fromStringToMessage(string msg, msg::message& message);
-
-    bool readNBytes(int fd, void *buf, std::size_t n);
 
 };

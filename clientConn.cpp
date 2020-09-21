@@ -233,59 +233,68 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
             // declaration of response message
             msg::message response;
             
-            log -> info ("wait for message from the client");
-            log -> flush();
+            try {
 
-            string buf = readMessage(sock);
-
-            string sBuf = buf;
-            string responseString;
-
-            log -> info ("message received from the client " + sBuf);
-            log -> flush();
-
-            resCode = fromStringToMessage(buf, msg);
-
-            if(resCode == 0){
-                
-                log -> info ("message parsed" );
+                log -> info ("wait for message from the client");
                 log -> flush();
 
-                switch(msg.typeCode){
+                string buf = readMessage(sock);
+
+                string sBuf = buf;
+                string responseString;
+
+                log -> info ("message received from the client " + sBuf);
+                log -> flush();
+
+                resCode = fromStringToMessage(buf, msg);
+
+                if(resCode == 0){
                     
-                    // file update
-                    case 1:
+                    log -> info ("message parsed" );
+                    log -> flush();
 
-                        resCode = handleFileUpdate(msg);
+                    switch(msg.typeCode){
+                        
+                        // file update
+                        case 1:
 
-                    break;
+                            resCode = handleFileUpdate(msg);
 
-                    // file rename
-                    case 2:
+                        break;
 
-                        resCode = handleFileRename(msg);
+                        // file rename
+                        case 2:
 
-                    break;
+                            resCode = handleFileRename(msg);
 
-                    // file creation
-                    case 3:
+                        break;
 
-                        resCode = handleFileCreation(msg);
+                        // file creation
+                        case 3:
 
-                    break;
+                            resCode = handleFileCreation(msg);
 
-                    // file delete
-                    case 4:
+                        break;
 
-                        resCode = handleFileDelete(msg);
+                        // file delete
+                        case 4:
 
-                    break;
+                            resCode = handleFileDelete(msg);
+
+                        break;
+                    }
+
                 }
 
-            }
+                sendResponse(resCode, msg);
 
-            sendResponse(resCode, msg);
-            
+            } catch (...) {
+
+                log -> error("unexpected error happened");
+                return;
+
+            }
+                        
         }
         
     }

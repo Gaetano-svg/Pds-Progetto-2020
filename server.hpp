@@ -22,15 +22,8 @@ using pClient = std::shared_ptr<ClientConn>;
 #define IDLE_TIMEOUT 60
 
 class Server {
-
-public:
-
-    // Questo file viene creato e/o modificato all'avvio delle connessioni
-    // dei client verso il server: contiene un array di STRUCT USER (si ricicla la
-    // struct user ) che lato server indicano per ogni user in quale folder spostare
-    // i file creati. Questo file deve essere creato dal SERVER. Non è di configurazione
     
-    // questo file servirà al server per capire a quale path è associato l'utente
+private:
 
     std::vector <conf::user> usersPath;
     shared_ptr <spdlog::logger> log;
@@ -48,23 +41,15 @@ public:
     int port;
     string logFile = "server_log.txt";
 
-    Server (){}
+public:
 
-    // init the Server Logger
-    // return -1 in case of error
+
+    Server (){};
+    
     int initLogger();
 
     int readConfiguration (string file);
-
-    // metodo usato per inizializzare il vettore usersPath. Esso conterrà,
-    // per ogni utente, il corrispettivo path iniziale in cui SALVARE le modifiche
-    // che i vari client manderanno. Nel caso in cui tale file non dovesse esistere,
-    // verrà creato e popolato per OGNI CONNESSIONE RICEVUTA.
-
-    int readUsersPath();
-
-    // a while loop used to listen to all the connection request
-
+    
     int startListening();
 
     ~Server();

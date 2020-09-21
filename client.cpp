@@ -1,6 +1,17 @@
 
 #include "client.hpp"
 
+/* 
+
+RETURN:
+
+ 0   ---> no error
+-1   ---> error opening/creating the file
+-2   ---> error converting the JSON
+-3   ---> error saving the JSON inside the struct
+
+*/
+
 int Client::readConfiguration () {
 
 
@@ -17,25 +28,43 @@ int Client::readConfiguration () {
     if(!(userConfFile >> jUserConf))
     {
         cerr << "The User Configuration File couldn't be parsed";
-        return -1; 
+        return -2; 
     }
 
     // save the user configuration inside a local struct
-    uc = conf::user 
-    {
-        jUserConf["serverIp"].get<string>(),
-        jUserConf["serverPort"].get<string>(),
-        jUserConf["name"].get<string>(),
-        jUserConf["folderPath"].get<string>()
-    };
+    try {
+
+        uc = conf::user 
+        {
+            jUserConf["serverIp"].get<string>(),
+            jUserConf["serverPort"].get<string>(),
+            jUserConf["name"].get<string>(),
+            jUserConf["folderPath"].get<string>()
+        };
+
+    } catch (...) {
+
+        cerr << "Error during the saving of the configuration locally to CLIENT";
+        return -3;
+
+    }
 
     return 0;
 
 }
 
+/* 
+
+RETURN:
+
+ 0   ---> no error
+-1   ---> error opening/creating the log file
+
+*/
+
 int Client::initLogger () {
 
-    // 2. Logger initialization
+    // Logger initialization
 
     try 
     {
@@ -52,6 +81,16 @@ int Client::initLogger () {
     return 0;
 
 }
+
+/*
+
+RETURN:
+
+ 0 ---> no error
+-1 ---> error creating socket
+-2 ---> server address not supported
+
+*/
 
 int Client::serverConnection () {
 
@@ -73,12 +112,15 @@ int Client::serverConnection () {
 	hint.sin_port = htons(atoi(uc.serverPort.c_str()));
 	
     // Convert IPv4 and IPv6 addresses from text to binary form 
-    if ((inet_pton(AF_INET, "127.0.0.1", &hint.sin_addr)) <= 0)
+    if ((inet_pton(AF_INET, uc.serverIp.c_str(), &hint.sin_addr)) <= 0)
     {
         myLogger -> error("Invalid address: address " + uc.serverIp + " not supported");
         close(sock);
-        return -1;
+        return -2;
     }
+
+    myLogger -> info ("try to connect to server - IP: " + uc.serverIp + " PORT: " + uc.serverPort);
+    myLogger -> flush();
 
 	// Connect to server
 	while (connect(sock, (sockaddr*)&hint, sizeof(hint)) < 0)
@@ -95,6 +137,18 @@ int Client::serverConnection () {
     return 0;
 }
 
+/*
+
+RETURN:
+
+ 0 ---> no error
+-1 ---> error parsing the user configuration json object
+-2 ---> error sending user configuration LENGTH
+-3 ---> error sending user configuration DATA
+-4 ---> error receving user configuration RESPONSE from server
+
+*/
+
 int Client::sendConfiguration () {
 
     msg::connection connMess
@@ -103,24 +157,55 @@ int Client::sendConfiguration () {
         uc.folderPath
     };
 
-    json jConnMess = json{{"userName", connMess.userName}, {"folderPath", connMess.folderPath}};
+    json jConnMess;
+
+    try {
+
+        jConnMess = json{{"userName", connMess.userName}, {"folderPath", connMess.folderPath}};
+
+    } catch (...) {
+
+        myLogger -> error ("error creating the user configuration json");
+        return -1;
+
+    }
 
     string connString = jConnMess.dump();
 
     uint64_t sizeNumber = connString.length();
     uint64_t dataLength = (connString.size()); 
+
+    // Send the data length
+    if(send(sock,&dataLength ,sizeof(uint64_t) ,MSG_CONFIRM) < 0){
+
+        myLogger -> error ("error sending user configuration LENGTH");
+        return -2;
+
+    } 
     
-    send(sock,&dataLength ,sizeof(uint64_t) ,MSG_CONFIRM); // Send the data length
-    
-    myLogger -> info("user configuration length sent: " + to_string(dataLength));
+    myLogger -> info("user configuration length sent correctly: " + to_string(dataLength));
     myLogger -> flush();
 
-    send(sock,connString.c_str(),connString.size(),MSG_CONFIRM); // Send the string 
+    // Send the data content 
+    if(send(sock,connString.c_str(),connString.size(),MSG_CONFIRM) < 0){
+
+        myLogger -> error ("error sending user configuration DATA");
+        return -3;
+
+    } 
     
-    myLogger -> info("user configuration sent: " + connString);
+    myLogger -> info("user configuration sent correctly: " + connString);
     myLogger -> flush();
 
-    string responseString = readConfigurationResponse(sock);
+    // wait until servers response
+    string responseString;
+    
+    if(readConfigurationResponse(responseString) < 0){
+
+        myLogger -> error ("error receiving response from server");
+        return -4;
+
+    } 
 
     myLogger -> info("message response received for connection-message: " + responseString);
     myLogger -> flush();
@@ -129,121 +214,193 @@ int Client::sendConfiguration () {
 
 }
 
-/// Reads n bytes from fd.
-bool Client::readNBytes(int fd, void *buf, std::size_t n) {
-        
-    std::size_t offset = 0;
-    char *cbuf = reinterpret_cast<char*>(buf);
+/*
 
-    while (true) {
+RETURN:
 
-        ssize_t ret = recv(fd, cbuf + offset, n - offset, MSG_WAITALL);
-        if (ret < 0) {
-            if (errno != EINTR) {
-                // Error occurred
-                //throw IOException(strerror(errno));
-                return false;
-            }
-        } else if (ret == 0) {
-           // No data available anymore
-            if (offset == 0) return false;
-            else             return false;//throw ProtocolException("Unexpected end of stream");
-        } else if (offset + ret == n) {
-            // All n bytes read
-            return true;
-        } else {
-            offset += ret;
-        }
+ 0 ---> no error
+-1 ---> error parsing message json
+-2 ---> error sending message LENGTH
+-3 ---> error sending message DATA
 
-    }
-    
-}
+*/
 
 int Client::sendMessage(msg::message msg){
 
-    json jMsg = json{{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"fileContent", msg.fileContent}};
+    json jMsg;
+    
+    try {
+
+        jMsg = json{{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"fileContent", msg.fileContent}};
+    
+    } catch (...) {
+
+        myLogger -> error ("an error parsing message json");
+        return -1;
+
+    }
+
     string jMsgString = jMsg.dump();
     uint64_t sizeNumber = jMsgString.length();
 
     myLogger -> info("Sending create SIZE msg for file to server: " + to_string(jMsgString.length()) + " bytes");
     myLogger -> flush(); 
     
-    send(sock, &sizeNumber, sizeof(sizeNumber), 0);
+    if(send(sock, &sizeNumber, sizeof(sizeNumber), 0) < 0){
+
+        myLogger -> error ("an error occured sending message LENGTH");
+        return -2;
+
+    }
 
     myLogger -> info("Sending create msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
     myLogger -> flush(); 
 
-    send(sock, jMsgString.c_str(), sizeNumber, 0);
+    if (send(sock, jMsgString.c_str(), sizeNumber, 0) < 0){
+
+        myLogger -> error ("an error occured sending message DATA");
+        return -3;
+
+    }
 
     return 0;
 
 }
 
-string Client::readMessageResponse(int fd){
+/*
 
-        uint64_t rcvDataLength;
-        string bufString;
-        std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
-        std::string receivedString;                        // assign buffered data to a 
+RETURN:
 
+ 0 ---> no error
+-1 ---> error receiving message LENGTH
+-2 ---> error receiving message DATA
+-3 ---> unexpected error
+
+*/
+
+int Client::readMessageResponse(string & response){
+
+    uint64_t rcvDataLength;
+    std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
     
-    myLogger -> info("wait For response");
-    myLogger -> flush();
+    try {
 
-        recv(fd,&rcvDataLength,sizeof(uint64_t),0); // Receive the message length
+        myLogger -> info("wait For response");
+        myLogger -> flush();
+
+        // Receive the message length
+        if(recv(sock,&rcvDataLength,sizeof(uint64_t),0) < 0){
+
+            myLogger -> error("an error occured receiving message LENGTH");
+            return -1;
+
+        } 
+
         rcvBuf.resize(rcvDataLength,0x00); // with the necessary size
 
         myLogger -> info ("message size received: " + rcvDataLength);
 
-        recv(fd,&(rcvBuf[0]),rcvDataLength,0); // Receive the string data
-        receivedString.assign(rcvBuf.begin(), rcvBuf.end());
+        // Receive the string data
+        if(recv(sock,&(rcvBuf[0]),rcvDataLength,0) < 0){
 
-        myLogger -> info ("message received: " + receivedString);
+            myLogger -> error("an error occured receiving message DATA");
+            return -2;
 
-        bufString = receivedString.c_str();
-        return bufString;
+        } 
+        
+        response.assign(rcvBuf.begin(), rcvBuf.end());
+        myLogger -> info ("message received: " + response);
+        
+    } catch (...) {
 
-}
-
-int Client::fromStringToMessage(string msg, msg::message& message){
-
-        try {
-
-            auto jsonMSG = json::parse(msg);
-
-            jsonMSG.at("type").get_to(message.type);
-            jsonMSG.at("typeCode").get_to(message.typeCode);
-            jsonMSG.at("folderPath").get_to(message.folderPath);
-            jsonMSG.at("fileName").get_to(message.fileName);
-            jsonMSG.at("fileContent").get_to(message.fileContent);
-
-        } catch (...) {
-
-            myLogger -> error ("An error appened parsing the message received: " + msg);
-            myLogger -> flush();
-            return -10;
-
-        }
-
-        return 0;
+        myLogger -> error ("unexpected error happened reading message response");
+        return -3;
 
     }
 
-/// Reads message from fd
-string Client::readConfigurationResponse(int fd) {
+    return 0;
 
-        uint64_t rcvDataLength;
-        string bufString;
-        std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
-        std::string receivedString;                        // assign buffered data to a 
+}
 
-        recv(fd,&rcvDataLength,sizeof(uint64_t),0); // Receive the message length
+/*
+
+RETURN:
+
+ 0  ---> no error
+-10 ---> error parsing message received into JSON
+
+*/
+
+int Client::fromStringToMessage(string msg, msg::message& message){
+
+    try {
+
+        auto jsonMSG = json::parse(msg);
+
+        jsonMSG.at("type").get_to(message.type);
+        jsonMSG.at("typeCode").get_to(message.typeCode);
+        jsonMSG.at("folderPath").get_to(message.folderPath);
+        jsonMSG.at("fileName").get_to(message.fileName);
+        jsonMSG.at("fileContent").get_to(message.fileContent);
+
+    } catch (...) {
+
+        myLogger -> error ("An error appened parsing the message received: " + msg);
+        myLogger -> flush();
+        return -10;
+
+    }
+ 
+    return 0;
+
+}
+
+/*
+
+RETURN:
+
+ 0 ---> no error
+-1 ---> error receiving data length
+-2 ---> error receiving data
+-3 ---> unexpected error
+
+*/
+
+int Client::readConfigurationResponse(string & response) {
+
+    uint64_t rcvDataLength;
+    string bufString;
+    std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
+
+    try {
+
+        // Receive the message length
+        if(recv(sock,&rcvDataLength,sizeof(uint64_t),0) < 0){
+
+            myLogger -> error("an error occured waiting for CONF RESPONSE LENGTH");
+            return -1;
+
+        } 
+        
         rcvBuf.resize(rcvDataLength,0x00); // with the necessary size
 
-        recv(fd,&(rcvBuf[0]),rcvDataLength,0); // Receive the string data
-        receivedString.assign(rcvBuf.begin(), rcvBuf.end());
+        // Receive the string data
+        if(recv(sock,&(rcvBuf[0]),rcvDataLength,0) < 0){
 
-        bufString = receivedString.c_str();
-        return bufString;
+            myLogger -> error("an error occured waiting for CONF RESPONSE DATA");
+            return -2;
+
+        }
+
+        response.assign(rcvBuf.begin(), rcvBuf.end());
+
+    } catch (...) {
+
+        myLogger -> error ("an unexpected error happened reading configuration response");
+        return -3;
+
+    }
+    
+    return 0;
 
 }
