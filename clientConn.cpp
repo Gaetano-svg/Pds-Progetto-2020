@@ -3,8 +3,11 @@
 #include <algorithm>
 #include <vector>
 #include <arpa/inet.h>
+#include "boost/filesystem.hpp"
 
 #define MSG_SIZE 1024
+
+using namespace boost::filesystem;
 
 ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile(logFile), sock(sock), server(server){
     running = true;
@@ -14,7 +17,11 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
         try 
         {
-            this -> log = spdlog::basic_logger_mt(userConf.userName+"_client",logFile);
+            // check if log already exists
+            this -> log = spdlog::get(userConf.userName+"_client");
+
+            if(this -> log == nullptr)
+                this -> log = spdlog::basic_logger_mt(userConf.userName+"_client",userConf.userName+"_"+logFile);
 
             this -> log -> info("Logger initialized correctly");
 
@@ -94,6 +101,41 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
     }
 
+
+void ClientConn::selective_search(string & response)
+{
+    recursive_directory_iterator dir(this -> localPath), end;
+    auto jsonObjects = json::array();
+
+    // iterating over the local folder of the client
+    while (dir != end)
+    {
+        msg::initialConf conf {
+            dir -> path().c_str(),
+            dir -> path().c_str()
+        };
+
+        json obj = json {{"path", conf.path},{"hash", conf.hash}};
+        string stringa = obj.dump();
+        jsonObjects.push_back(obj);
+
+        ++dir;
+    }
+
+    /*cout << "end" << endl;
+    cout << jsonObjects.size() << endl;
+    cout << "end2" << endl;
+
+    cout << "try parsification of json array" << endl;*/
+    response = jsonObjects.dump();
+    /*auto test = json::parse(arrayString);
+
+    cout << "prova length" << endl;
+    cout << test.size() << endl;*/
+
+
+}
+
     void ClientConn::waitUserConfiguration(){
 
         msg::message msg, response;
@@ -105,13 +147,21 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
         int resCode = fromStringToUserConf(bufString, this -> userConf);
 
-            response.folderPath = "";
-            response.fileContent = "";
-            response.fileName = "";
+        // local folder of the client ( Server Side )
+        this -> localPath = server.backupFolder + "/" + userConf.userName;
+
+        response.folderPath = "";
+        response.fileContent = "";
+        response.fileName = "";
 
         if(resCode == 0){
+
             response.typeCode = 0;
             response.type = "Ok";
+
+            // as response we will send the local folder file-hash
+            selective_search(response.fileContent);
+
         }
                         
         else {
@@ -542,6 +592,9 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
 
             // first of all, get the user configuration
             waitUserConfiguration();
+
+            // after receiving user configuration search for user folder to create configuration JSON to send to user itself
+            
 
             // set logger for client connection using the server log file
             initLogger();

@@ -29,6 +29,7 @@ public:
     int sock;
     string ip;
     string logFile;
+    string localPath;  // path of client folder
     bool running;
 
     shared_ptr <spdlog::logger> log;
@@ -42,6 +43,7 @@ public:
     void waitForMessage();
 
     string readUserConfiguration(int fd);
+    void selective_search(string & response);
     int fromStringToUserConf(string uc, msg::connection& userConf);
 
     string readMessage(int fd);

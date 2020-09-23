@@ -21,6 +21,17 @@ namespace msg {
 
     };
 
+    ///////////////////////////////////
+    ///*** INITIAL CONFIGURATION ***///
+    ///////////////////////////////////
+
+    struct initialConf {
+
+        std::string path;
+        std::string hash;
+
+    };
+
     //////////////////////////////
     ///*** RESPONSE MESSAGE ***///
     //////////////////////////////

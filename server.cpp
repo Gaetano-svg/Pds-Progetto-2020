@@ -204,6 +204,7 @@ int Server::initLogger(){
     // opening/creating the log file
     try 
     {
+        // controllare se il logger esiste oppure creare e chiudere il log per ogni connessione del client
         this -> log = spdlog::basic_logger_mt(this -> sc.ip, this -> logFile);
         this -> log -> info("Logger initialized correctly");
         this -> log -> flush();
