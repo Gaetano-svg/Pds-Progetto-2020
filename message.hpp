@@ -18,6 +18,7 @@ namespace msg {
         std::string folderPath;
         std::string fileName;
         std::string fileContent;
+        std::string userName;
 
     };
 
@@ -51,6 +52,7 @@ namespace msg {
     // 2. FileRename
     // 3. FileCreate
     // 4. FileDelete
+    // 5. InitialConfigRequest
 
     // NB: dal momento che per i primi tre tipi di body le struct contengono
     // gli stessi campi stringa, bisogna vedere se è il caso di unirli in una

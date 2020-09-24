@@ -247,7 +247,7 @@ int Client::sendMessage(msg::message msg){
     
     try {
 
-        jMsg = json{{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"fileContent", msg.fileContent}};
+        jMsg = json{{"userName", msg.userName},{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"fileContent", msg.fileContent}};
     
     } catch (...) {
 
@@ -259,7 +259,7 @@ int Client::sendMessage(msg::message msg){
     string jMsgString = jMsg.dump();
     uint64_t sizeNumber = jMsgString.length();
 
-    myLogger -> info("Sending create SIZE msg for file to server: " + to_string(jMsgString.length()) + " bytes");
+    myLogger -> info("Sending SIZE msg for file to server: " + to_string(jMsgString.length()) + " bytes");
     myLogger -> flush(); 
     
     if(send(sock, &sizeNumber, sizeof(sizeNumber), 0) < 0){
@@ -269,7 +269,7 @@ int Client::sendMessage(msg::message msg){
 
     }
 
-    myLogger -> info("Sending create msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
+    myLogger -> info("Sending DATA msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
     myLogger -> flush(); 
 
     if (send(sock, jMsgString.c_str(), sizeNumber, 0) < 0){

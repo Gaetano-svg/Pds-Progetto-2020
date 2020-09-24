@@ -19,14 +19,15 @@ int main()
     // send user configuration to server (in order to collect users info)
     //client.sendConfiguration();
 
-    cout << "send update message" << endl;
+    cout << "send initial conf message" << endl;
 
     msg::message fcu {
-        "update",
+        "initial conf",
         3,
-        "test",
-        "test",
-        "test create"
+        "test2/testInner",
+        "test2",
+        "test create 2",
+        "gaetano"
     };
 
     client.serverConnection();
@@ -41,7 +42,9 @@ int main()
         3,
         "test",
         "test",
-        "test create"
+        "test create",
+        "gaetano"
+
     };
 
     client.serverConnection();

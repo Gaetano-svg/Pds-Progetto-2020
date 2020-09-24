@@ -1,7 +1,5 @@
 #include "server.hpp"
 
-using pClient = std::shared_ptr<ClientConn>;
-
 Server::~Server(){
         
     if(sock!=-1)
@@ -101,7 +99,7 @@ int Server::startListening(){
                 string clientIp = ccaddr -> sa_data;
 
                 // for each client allocate a ClientConnection object
-                pClient client = pClient(new ClientConn(this -> logFile, csock, this -> sc,  clientIp));
+                auto client = shared_ptr<ClientConn>(new ClientConn(*this, this -> logFile, csock, this -> sc,  clientIp));
 
                 // this keeps the client alive until it's destroyed
                 {
@@ -228,9 +226,16 @@ int Server::initLogger(){
 
 }
 
+/*
+
+used to close one client-socket and erase it from the local map
+
+*/
+
 void Server::unregisterClient(int csock){
 
     std::lock_guard <mutex> lg(m);
     clients.erase(csock);
+    close(csock);
 
 }
