@@ -144,6 +144,20 @@ int Client::serverDisconnection () {
     myLogger -> info ("try to disconnect from server - IP: " + uc.serverIp + " PORT: " + uc.serverPort);
     myLogger -> flush();
 
+    string response;
+    msg::message fcu2 {
+        "disconnect",
+        6,
+        "test",
+        "test",
+        "test disconnect",
+        "gaetano"
+
+    };
+
+    sendMessage(fcu2);
+    readMessageResponse(response);
+
 	// Disconnect from server
     close(sock);
 

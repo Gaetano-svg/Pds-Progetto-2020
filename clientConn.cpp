@@ -124,7 +124,7 @@ void Server::ClientConn::selective_search(string & response, msg::message & msg)
     boost::filesystem::path dstFolder = path;
 
     log -> info("trying to read folder path: " + path);
-    
+
     if( ! boost::filesystem::exists(dstFolder)){
 
         log -> info("the path doesn't exist:" + path);
@@ -233,73 +233,85 @@ void Server::ClientConn::waitForMessage(){
 
     // declaration of response message
     msg::message response;
-            
-    try {
 
-        log -> info ("wait for message from the client");
-        log -> flush();
+    while(running){   
 
-        string buf = readMessage(sock);
+        try {
 
-        string sBuf = buf;
-        string responseString;
-
-        resCode = fromStringToMessage(buf, msg);
-
-        if(resCode == 0){
-                    
-            log -> info ("message parsed" );
+            log -> info ("wait for message from the client");
             log -> flush();
 
-            switch(msg.typeCode){
+            string buf = readMessage(sock);
+
+            string sBuf = buf;
+            string responseString;
+
+            resCode = fromStringToMessage(buf, msg);
+
+            if(resCode == 0){
                         
-                // file update
-                case 1:
+                log -> info ("message parsed" );
+                log -> flush();
 
-                    resCode = handleFileUpdate(msg);
+                switch(msg.typeCode){
+                            
+                    // file update
+                    case 1:
 
-                break;
+                        resCode = handleFileUpdate(msg);
 
-                // file rename
-                case 2:
+                    break;
 
-                    resCode = handleFileRename(msg);
+                    // file rename
+                    case 2:
 
-                break;
+                        resCode = handleFileRename(msg);
 
-                // file creation
-                case 3:
+                    break;
 
-                    resCode = handleFileCreation(msg);
+                    // file creation
+                    case 3:
 
-                break;
+                        resCode = handleFileCreation(msg);
 
-                // file delete
-                case 4:
+                    break;
 
-                    resCode = handleFileDelete(msg);
+                    // file delete
+                    case 4:
 
-                break;
+                        resCode = handleFileDelete(msg);
 
-                // initial configuration
-                case 5:
+                    break;
 
-                    resCode = 0;
+                    // initial configuration
+                    case 5:
 
-                break;
+                        resCode = 0;
+
+                    break;
+
+                    // close connection
+                    case 6:
+
+                        resCode = 0;
+                        running = false;
+
+                    break;
+                }
+
             }
+
+            sendResponse(resCode, msg);
+
+        } catch (...) {
+
+            log -> error("unexpected error happened");
+            return;
 
         }
 
-        sendResponse(resCode, msg);
 
-    } catch (...) {
-
-        log -> error("unexpected error happened");
-        return;
-
-    }
-                        
+    }            
     //}
         
 }

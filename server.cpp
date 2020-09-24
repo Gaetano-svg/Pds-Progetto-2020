@@ -82,8 +82,13 @@ int Server::startListening(){
             log -> info("waiting for client connection");
             log -> flush();
 
+            int csock;
+
             // wait until client connection
-            int csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
+            {
+                //std::lock_guard<mutex> lg(m);
+                csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
+            }
 
             if(csock<0){
 
@@ -103,7 +108,7 @@ int Server::startListening(){
 
                 // this keeps the client alive until it's destroyed
                 {
-                    std::lock_guard<mutex> lg(m);
+                    //std::lock_guard<mutex> lg(m);
                     clients[csock] = client;
                 }
 
@@ -237,5 +242,8 @@ void Server::unregisterClient(int csock){
     std::lock_guard <mutex> lg(m);
     clients.erase(csock);
     close(csock);
+    log -> info("");
+    log -> info("Exited from waiting messages from socket: " + to_string(csock) + " \n");
+    log -> flush();    
 
 }
