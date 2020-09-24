@@ -18,6 +18,7 @@ enum ClientStatus {
     starting, active, terminating
 };
 
+
 class ClientConn {
 
 
@@ -34,7 +35,7 @@ public:
 
     shared_ptr <spdlog::logger> log;
 
-    ClientConn(string& logFile, int& sock, conf::server server);
+    ClientConn(string& logFile, int& sock, conf::server server, string ip);
 
     void handleConnection();
 

@@ -107,7 +107,7 @@ int Client::serverConnection () {
     myLogger -> info("Socket " + to_string(sock) + " was created");
 
 	// Fill in a hint structure
-	sockaddr_in hint;
+    sockaddr_in hint;
 	hint.sin_family = AF_INET;
 	hint.sin_port = htons(atoi(uc.serverPort.c_str()));
 	
@@ -118,7 +118,7 @@ int Client::serverConnection () {
         close(sock);
         return -2;
     }
-
+    
     myLogger -> info ("try to connect to server - IP: " + uc.serverIp + " PORT: " + uc.serverPort);
     myLogger -> flush();
 
@@ -137,6 +137,22 @@ int Client::serverConnection () {
     return 0;
 }
 
+int Client::serverDisconnection () {
+
+    // Create socket
+
+    myLogger -> info ("try to disconnect from server - IP: " + uc.serverIp + " PORT: " + uc.serverPort);
+    myLogger -> flush();
+
+	// Disconnect from server
+    close(sock);
+
+    myLogger -> info ("disconnected from server " + uc.serverIp + ":" + uc.serverPort);
+    myLogger -> flush();
+
+    return 0;
+
+}
 /*
 
 RETURN:
@@ -291,25 +307,27 @@ int Client::readMessageResponse(string & response){
         // Receive the message length
         if(recv(sock,&rcvDataLength,sizeof(uint64_t),0) < 0){
 
-            myLogger -> error("an error occured receiving message LENGTH");
+            myLogger -> error("an error occured receiving response LENGTH");
             return -1;
 
         } 
 
         rcvBuf.resize(rcvDataLength,0x00); // with the necessary size
 
-        myLogger -> info ("message size received: " + rcvDataLength);
+        myLogger -> info ("response size received: " + to_string(rcvDataLength));
+        myLogger -> flush();
 
         // Receive the string data
         if(recv(sock,&(rcvBuf[0]),rcvDataLength,0) < 0){
 
-            myLogger -> error("an error occured receiving message DATA");
+            myLogger -> error("an error occured receiving response DATA");
             return -2;
 
         } 
         
         response.assign(rcvBuf.begin(), rcvBuf.end());
-        myLogger -> info ("message received: " + response);
+        myLogger -> info ("response received: " + response);
+        myLogger -> flush();
         
     } catch (...) {
 

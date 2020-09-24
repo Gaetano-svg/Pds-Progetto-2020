@@ -27,6 +27,7 @@ public:
     int readConfiguration ();
     int initLogger();
     int serverConnection();
+    int serverDisconnection();
 
     int sendConfiguration();
     int sendMessage(msg::message msg);

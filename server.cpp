@@ -1,5 +1,7 @@
 #include "server.hpp"
 
+using pClient = std::shared_ptr<ClientConn>;
+
 Server::~Server(){
         
     if(sock!=-1)
@@ -26,6 +28,9 @@ int Server::startListening(){
 
     // initialize socket
     sock = socket(AF_INET, SOCK_STREAM, 0);
+
+    log -> info("socket created: " + to_string(sock));
+    log -> flush();
 
     if ( sock == 0 ) { 
         
@@ -90,17 +95,19 @@ int Server::startListening(){
             } else {
 
                 char buff[8];
-                std::lock_guard<mutex> lg(m);
 
                 //get socket ip address
                 struct sockaddr* ccaddr = (struct sockaddr*)&caddr;
                 string clientIp = ccaddr -> sa_data;
 
                 // for each client allocate a ClientConnection object
-                pClient client = pClient(new ClientConn(this -> logFile, csock, this -> sc));
+                pClient client = pClient(new ClientConn(this -> logFile, csock, this -> sc,  clientIp));
 
                 // this keeps the client alive until it's destroyed
-                clients[csock] = client;
+                {
+                    std::lock_guard<mutex> lg(m);
+                    clients[csock] = client;
+                }
 
                 // handle connection should return immediately
                 client->handleConnection();
@@ -111,10 +118,12 @@ int Server::startListening(){
 
             string error = exc.what();
             log -> error ("an error occured: " + error);
+            log -> flush();
 
         } catch (...) {
 
             log -> error ("an unexpected error occured ");
+            log -> flush();
 
         }
 

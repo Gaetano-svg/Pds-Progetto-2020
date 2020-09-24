@@ -9,7 +9,7 @@
 
 using namespace boost::filesystem;
 
-ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile(logFile), sock(sock), server(server){
+ClientConn::ClientConn( string& logFile, int& sock, conf::server server, string clientIp): ip(clientIp), logFile(logFile), sock(sock), server(server){
     running = true;
 };
 
@@ -18,10 +18,12 @@ ClientConn::ClientConn( string& logFile, int& sock, conf::server server):logFile
         try 
         {
             // check if log already exists
-            this -> log = spdlog::get(userConf.userName+"_client");
+            //this -> log = spdlog::get(userConf.userName+"_client");
+            this -> log = spdlog::get("client_" + to_string(this -> sock));
 
             if(this -> log == nullptr)
-                this -> log = spdlog::basic_logger_mt(userConf.userName+"_client",userConf.userName+"_"+logFile);
+                //this -> log = spdlog::basic_logger_mt(userConf.userName+"_client",userConf.userName+"_"+logFile);
+                this -> log = spdlog::basic_logger_mt("client_" + to_string(this -> sock),logFile);
 
             this -> log -> info("Logger initialized correctly");
 
@@ -274,7 +276,7 @@ void ClientConn::selective_search(string & response)
 
     void ClientConn::waitForMessage(){
 
-        while(running){
+        //while(running){
 
             msg::message msg;
             int resCode;
@@ -292,9 +294,6 @@ void ClientConn::selective_search(string & response)
 
                 string sBuf = buf;
                 string responseString;
-
-                log -> info ("message received from the client " + sBuf);
-                log -> flush();
 
                 resCode = fromStringToMessage(buf, msg);
 
@@ -345,7 +344,7 @@ void ClientConn::selective_search(string & response)
 
             }
                         
-        }
+        //}
         
     }
 
@@ -591,7 +590,7 @@ void ClientConn::selective_search(string & response)
             // even if it's removed from the clients map (we "abuse" of RAII)
 
             // first of all, get the user configuration
-            waitUserConfiguration();
+            //waitUserConfiguration();
 
             // after receiving user configuration search for user folder to create configuration JSON to send to user itself
             
@@ -601,6 +600,8 @@ void ClientConn::selective_search(string & response)
 
             // while loop to wait for different messages from client
             waitForMessage();
+            
+            close(sock);
             
         });
 

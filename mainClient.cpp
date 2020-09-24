@@ -16,11 +16,8 @@ int main()
     // initialize client logger
     client.initLogger();
 
-    // connect the client to the server
-    client.serverConnection();
-
     // send user configuration to server (in order to collect users info)
-    client.sendConfiguration();
+    //client.sendConfiguration();
 
     cout << "send update message" << endl;
 
@@ -32,8 +29,25 @@ int main()
         "test create"
     };
 
+    client.serverConnection();
     client.sendMessage(fcu);
     client.readMessageResponse(response);
+    client.serverDisconnection();
+
+    cout << "send update message 2" << endl;
+
+    msg::message fcu2 {
+        "update2",
+        3,
+        "test",
+        "test",
+        "test create"
+    };
+
+    client.serverConnection();
+    client.sendMessage(fcu2);
+    client.readMessageResponse(response);
+    client.serverDisconnection();
 
     cout << response << endl;
 
