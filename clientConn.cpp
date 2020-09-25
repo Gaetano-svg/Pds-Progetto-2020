@@ -111,6 +111,28 @@ int Server::ClientConn::fromStringToMessage(string msg, msg::message& message){
 
 }
 
+
+std::string Server::ClientConn::compute_hash(const std::string file_path)
+{
+    try
+    {
+
+        std::string result;
+        CryptoPP::Weak1::MD5 hash;
+        CryptoPP::FileSource(file_path.c_str(), true, new
+                CryptoPP::HashFilter(hash, new CryptoPP::HexEncoder(new
+                                                                            CryptoPP::StringSink(result), false)));
+        return result;
+
+    } catch (...){
+
+        log -> error("an error happened creating hash code from " + file_path);
+        return "";
+
+    }
+
+}
+
 /*
 
 RETURN:
@@ -144,7 +166,7 @@ void Server::ClientConn::selective_search(string & response, msg::message & msg)
         {
             msg::initialConf conf {
                 dir -> path().c_str(),
-                dir -> path().c_str()
+                compute_hash(dir -> path().c_str())
             };
 
             json obj = json {{"path", conf.path},{"hash", conf.hash}};

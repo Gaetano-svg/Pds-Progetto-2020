@@ -13,9 +13,17 @@
 #include "configuration.hpp"
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/basic_file_sink.h"
+
+#define CRYPTOPP_ENABLE_NAMESPACE_WEAK 1
+
+#include "cryptopp/cryptlib.h"
+#include "cryptopp/md5.h"
+#include "cryptopp/files.h"
+#include "cryptopp/hex.h"
 //#include "clientConn.hpp"
 #include <mutex>
 #include <shared_mutex>
+
 
 using namespace std;
 using namespace nlohmann;
@@ -83,6 +91,7 @@ public:
             int handleOkResponse(msg::message & response, msg::message &  msg);
             int handleErrorResponse(msg::message &  response, msg::message & msg, int errorCode);
 
+            string compute_hash(const std::string file_path);
             void sendResponse(int resCode, msg::message msg );
             
     };

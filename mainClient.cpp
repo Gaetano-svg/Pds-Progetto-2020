@@ -22,11 +22,11 @@ int main()
     cout << "send create message" << endl;
 
     msg::message fcu {
-        "create",
-        3,
-        "test2/testInner",
+        "initconf",
+        5,
         "test2",
-        "test create 2",
+        "test2",
+        "test conf 2",
         "gaetano"
     };
 
