@@ -27,7 +27,7 @@ int main()
         "test2",
         "test2",
         "test conf 2",
-        "gaetano"
+        client.uc.name
     };
 
     client.serverConnection();
@@ -44,11 +44,11 @@ int main()
         "test4",
         "test4",
         "test create",
-        "gaetano"
+        client.uc.name
 
     };
 
-    sleep(20);
+    sleep(2);
     //client.serverConnection();
     client.sendMessage(fcu2);
     client.readMessageResponse(response);
@@ -62,7 +62,7 @@ int main()
         "test5",
         "test5",
         "test create",
-        "gaetano"
+        client.uc.name
 
     };
 

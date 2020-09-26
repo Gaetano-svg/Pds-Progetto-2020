@@ -23,10 +23,13 @@
 //#include "clientConn.hpp"
 #include <mutex>
 #include <shared_mutex>
+#include <atomic>
+#include <chrono>
 
 
 using namespace std;
 using namespace nlohmann;
+using namespace std::chrono;
 
 
 #define IDLE_TIMEOUT 60
@@ -45,7 +48,6 @@ private:
 
     std::mutex m;
     int sock = -1;
-    bool running;
 
     string ip;
     int port;
@@ -53,23 +55,26 @@ private:
     
 public:
 
+    bool running;
     class ClientConn {
 
         public:
 
+            std::mutex mRunning;
             Server & serv;
             conf::server server;
             int sock;
             string ip;
             string logFile;
             string localPath;  // path of client folder
-            bool running;
+            atomic_bool running;
+            atomic_long activeMS;
 
             shared_ptr <spdlog::logger> log;
 
             
             ClientConn(Server & serv, string& logFile, int& sock, conf::server server, string clientIp): serv(serv), ip(clientIp), logFile(logFile), sock(sock), server(server){
-                running = true;
+                running.store(true);
             };
 
             void handleConnection();
@@ -78,9 +83,9 @@ public:
             int initLogger();
             void waitForMessage();
 
-            void selective_search(string & response, msg::message & msg);
+            int selective_search(string & response, msg::message & msg);
 
-            string readMessage(int fd);
+            int readMessage(int fd, string & bufString);
             int fromStringToMessage(string msg, msg::message& message);
             int fromMessageToString(string & messageString, msg::message & msg);
             int handleFileCreation(msg::message msg);
@@ -102,6 +107,8 @@ public:
 
     Server (){};
     
+    void checkUserInactivity();
+
     int initLogger();
 
     int readConfiguration (string file);

@@ -137,10 +137,20 @@ int Client::serverConnection () {
     return 0;
 }
 
+/*
+
+RETURN:
+
+ 0 -> no error
+-1 -> error sending disconnection request
+-2 -> error receiving disconnection request RESPONSE
+-3 -> error CLOSING SOCKET
+
+*/
+
 int Client::serverDisconnection () {
 
-    // Create socket
-
+    int resCode = 0;
     myLogger -> info ("try to disconnect from server - IP: " + uc.serverIp + " PORT: " + uc.serverPort);
     myLogger -> flush();
 
@@ -155,92 +165,26 @@ int Client::serverDisconnection () {
 
     };
 
-    sendMessage(fcu2);
-    readMessageResponse(response);
+    resCode = sendMessage(fcu2);
+    
+    if(resCode < 0)
+        return -1;
+
+    resCode = readMessageResponse(response);
+
+    if(resCode < 0)
+        return -2;
 
 	// Disconnect from server
-    close(sock);
+    resCode = close(sock);
+
+    if(resCode < 0)
+        return -3;
 
     myLogger -> info ("disconnected from server " + uc.serverIp + ":" + uc.serverPort);
     myLogger -> flush();
 
-    return 0;
-
-}
-/*
-
-RETURN:
-
- 0 ---> no error
--1 ---> error parsing the user configuration json object
--2 ---> error sending user configuration LENGTH
--3 ---> error sending user configuration DATA
--4 ---> error receving user configuration RESPONSE from server
-
-*/
-
-int Client::sendConfiguration () {
-
-    msg::connection connMess
-    {
-        uc.name,
-        uc.folderPath
-    };
-
-    json jConnMess;
-
-    try {
-
-        jConnMess = json{{"userName", connMess.userName}, {"folderPath", connMess.folderPath}};
-
-    } catch (...) {
-
-        myLogger -> error ("error creating the user configuration json");
-        return -1;
-
-    }
-
-    string connString = jConnMess.dump();
-
-    uint64_t sizeNumber = connString.length();
-    uint64_t dataLength = (connString.size()); 
-
-    // Send the data length
-    if(send(sock,&dataLength ,sizeof(uint64_t) ,MSG_CONFIRM) < 0){
-
-        myLogger -> error ("error sending user configuration LENGTH");
-        return -2;
-
-    } 
-    
-    myLogger -> info("user configuration length sent correctly: " + to_string(dataLength));
-    myLogger -> flush();
-
-    // Send the data content 
-    if(send(sock,connString.c_str(),connString.size(),MSG_CONFIRM) < 0){
-
-        myLogger -> error ("error sending user configuration DATA");
-        return -3;
-
-    } 
-    
-    myLogger -> info("user configuration sent correctly: " + connString);
-    myLogger -> flush();
-
-    // wait until servers response
-    string responseString;
-    
-    if(readConfigurationResponse(responseString) < 0){
-
-        myLogger -> error ("error receiving response from server");
-        return -4;
-
-    } 
-
-    myLogger -> info("message response received for connection-message: " + responseString);
-    myLogger -> flush();
-
-    return 0;
+    return resCode;
 
 }
 
@@ -252,12 +196,14 @@ RETURN:
 -1 ---> error parsing message json
 -2 ---> error sending message LENGTH
 -3 ---> error sending message DATA
+-4 ---> socket CLOSED
 
 */
 
 int Client::sendMessage(msg::message msg){
 
     json jMsg;
+    int sendCode = 0;
     
     try {
 
@@ -276,21 +222,31 @@ int Client::sendMessage(msg::message msg){
     myLogger -> info("Sending SIZE msg for file to server: " + to_string(jMsgString.length()) + " bytes");
     myLogger -> flush(); 
     
-    if(send(sock, &sizeNumber, sizeof(sizeNumber), 0) < 0){
+    sendCode = send(sock, &sizeNumber, sizeof(sizeNumber), 0);
+    if(sendCode < 0){
 
         myLogger -> error ("an error occured sending message LENGTH");
         return -2;
 
+    } else if (sendCode == 0) {
+
+        myLogger -> error ("the socket was closed before sending message LENGTH");
+        return -4;
     }
 
     myLogger -> info("Sending DATA msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
     myLogger -> flush(); 
 
-    if (send(sock, jMsgString.c_str(), sizeNumber, 0) < 0){
+    sendCode = send(sock, jMsgString.c_str(), sizeNumber, 0);
+    if (sendCode < 0){
 
         myLogger -> error ("an error occured sending message DATA");
         return -3;
 
+    } else if (sendCode == 0) {
+
+        myLogger -> error ("the socket was closed before sending message DATA");
+        return -4;
     }
 
     return 0;
@@ -305,6 +261,7 @@ RETURN:
 -1 ---> error receiving message LENGTH
 -2 ---> error receiving message DATA
 -3 ---> unexpected error
+-4 ---> socket CLOSED
 
 */
 
@@ -312,6 +269,7 @@ int Client::readMessageResponse(string & response){
 
     uint64_t rcvDataLength;
     std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
+    int rcvCode = 0;
     
     try {
 
@@ -319,12 +277,18 @@ int Client::readMessageResponse(string & response){
         myLogger -> flush();
 
         // Receive the message length
-        if(recv(sock,&rcvDataLength,sizeof(uint64_t),0) < 0){
+        rcvCode = recv(sock,&rcvDataLength,sizeof(uint64_t),0);
+        if(rcvCode < 0){
 
             myLogger -> error("an error occured receiving response LENGTH");
             return -1;
 
-        } 
+        } else if (rcvCode == 0){
+
+            myLogger -> error("socket closed before receiving response LENGTH");
+            return -4;
+
+        }
 
         rcvBuf.resize(rcvDataLength,0x00); // with the necessary size
 
@@ -332,12 +296,18 @@ int Client::readMessageResponse(string & response){
         myLogger -> flush();
 
         // Receive the string data
-        if(recv(sock,&(rcvBuf[0]),rcvDataLength,0) < 0){
+        rcvCode = recv(sock,&(rcvBuf[0]),rcvDataLength,0);
+        if(rcvCode < 0){
 
             myLogger -> error("an error occured receiving response DATA");
             return -2;
 
-        } 
+        } else if (rcvCode == 0){
+
+            myLogger -> error("socket closed before receiving response LENGTH");
+            return -4;
+
+        }
         
         response.assign(rcvBuf.begin(), rcvBuf.end());
         myLogger -> info ("response received: " + response);

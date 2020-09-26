@@ -139,7 +139,7 @@ RETURN:
 
 */
 
-void Server::ClientConn::selective_search(string & response, msg::message & msg)
+int Server::ClientConn::selective_search(string & response, msg::message & msg)
 {
 
     string path = server.backupFolder + "/" + msg.userName + "/" + msg.folderPath;
@@ -149,9 +149,10 @@ void Server::ClientConn::selective_search(string & response, msg::message & msg)
 
     if( ! boost::filesystem::exists(dstFolder)){
 
+        // it isn't an error because the path doesn't exist
         log -> info("the path doesn't exist:" + path);
         response = "[]";
-        return;
+        return 0;
 
     }
     
@@ -182,12 +183,15 @@ void Server::ClientConn::selective_search(string & response, msg::message & msg)
     catch (...)
     {
 
-        log -> error("an error occured reading path folder: " + path);
+        log -> error("an error occured computing hash from path folder: " + path);
 
         // fill the response with an empty array
         response = "[]";
+        return -1;
 
     }
+
+    return 0;
 
 }
 
@@ -195,6 +199,7 @@ void Server::ClientConn::sendResponse(int resCode, msg::message msg) {
         
     msg::message response;
     string responseString;
+    int sendCode = 0;
 
     if(resCode == 0)
         handleOkResponse(response, msg);
@@ -202,40 +207,134 @@ void Server::ClientConn::sendResponse(int resCode, msg::message msg) {
     else 
         handleErrorResponse(response, msg, resCode);
 
-    fromMessageToString(responseString, response);
+    resCode = fromMessageToString(responseString, response);
 
-    // send LENGTH of response
-    uint64_t sizeNumber = responseString.length();
-    send(sock, &sizeNumber, sizeof(sizeNumber), 0);
+    if(resCode == 0) {
 
-    // send STRING response
-    send(sock, responseString.c_str(), sizeNumber, 0);
-            
-    log -> info ("response sent: " + responseString );
-    log -> flush();
+        // send LENGTH of response
+        uint64_t sizeNumber = responseString.length();
+        
+        sendCode = send(sock, &sizeNumber, sizeof(sizeNumber), 0);
+        if (sendCode < 0){
+
+            string error = strerror(errno);
+            log -> error("error sending RESPONSE LENGTH: " + error);
+            return;
+
+        } else if (sendCode == 0){
+
+
+            log -> error("socket was closed before sending RESPONSE LENGTH");
+            this -> running.store(false);
+            return;
+
+        }
+
+        // send STRING response
+        sendCode = send(sock, responseString.c_str(), sizeNumber, 0);
+        if (sendCode < 0){
+
+            string error = strerror(errno);
+            log -> error("error sending RESPONSE DATA: " + error);
+            return;
+
+        } else if (sendCode == 0){
+
+
+            log -> error("socket was closed before sending RESPONSE DATA");
+            this -> running.store(false);
+            return;
+
+        }
+                
+        log -> info ("response sent: " + responseString );
+        log -> flush();
+
+    } else 
+
+        log -> error ("error parsing MESSAGE response to string");
 
 }
 
+
 /// Reads message from fd
-string Server::ClientConn::readMessage(int fd) {
+int Server::ClientConn::readMessage(int fd, string & bufString) {
         
     uint64_t rcvDataLength;
-    string bufString;
     std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
-    std::string receivedString;                        // assign buffered data to a 
+    std::string receivedString;     // assign buffered data to a 
+    int resCode = 0;
+    
+    try {
 
-    recv(fd,&rcvDataLength,sizeof(uint64_t),0); // Receive the message length
-    rcvBuf.resize(rcvDataLength,0x00); // with the necessary size
+        // Receive the message length
+        resCode = recv(fd,&rcvDataLength,sizeof(uint64_t),0);
+        
+        if (resCode < 0){
+        //if (select(fd,&rcvDataLength,sizeof(uint64_t),0, &m_timeInterval) < 0){
 
-    log -> info ("message size received: " + to_string(rcvDataLength));
+            string error = strerror(errno);
+            
+            log -> error("error receiving MESSAGE LENGTH: " + error);
+            return -1;
 
-    recv(fd,&(rcvBuf[0]),rcvDataLength,0); // Receive the string data
-    receivedString.assign(rcvBuf.begin(), rcvBuf.end());
+        } else if (resCode == 0){
 
-    log -> info ("message received: " + receivedString);
+            log -> error("socket was closed before receiving MESSAGE LENGTH: ");
+            this -> running.store(false);
+            return -2;
+        }
+            
+        log -> info ("message size received: " + to_string(rcvDataLength));
+        log -> flush();
+        
+        if(rcvDataLength > 0){
 
-    bufString = receivedString.c_str();
-    return bufString;
+            // resize string with the necessary size
+            rcvBuf.resize(rcvDataLength,0x00); 
+
+            // Receive the string data
+            resCode = recv(fd,&(rcvBuf[0]),rcvDataLength,0);
+            
+            if (resCode < 0){
+
+                string error = strerror(errno);
+                
+                log -> error("error receiving MESSAGE: " + error);
+                return -3;
+
+            } else if (resCode == 0){
+
+                log -> error("socket was closed before receiving MESSAGE DATA: ");
+                this -> running.store(false);
+                return -2;
+
+            }
+
+            receivedString.assign(rcvBuf.begin(), rcvBuf.end());
+            bufString = receivedString.c_str();
+
+            log -> info ("message received: " + receivedString);
+            log -> flush();
+
+        } else {
+
+            log -> error("Message length received wasn't correct: " + to_string(rcvDataLength));
+            return -4;
+
+        }
+
+    } catch (const std::exception & e) {
+
+        string excString = e.what();
+
+        log -> error ("An exception occured reading Message received from client: " + excString);
+        
+        return -5;
+
+    }
+    
+    return 0;
 
 }
 
@@ -256,74 +355,96 @@ void Server::ClientConn::waitForMessage(){
     // declaration of response message
     msg::message response;
 
-    while(running){   
+    while(running.load()){   
 
         try {
 
             log -> info ("wait for message from the client");
             log -> flush();
 
-            string buf = readMessage(sock);
+            string buf;
+            
+            /*{
+                std::unique_lock<mutex> ul (this -> mRunning);
+                // settarlo a false prima del messaggio permette di capire se tra 60 secondi l'utente è ancora attivo
+                // in caso contrario il server chiuderà il socket non permettendo quindi la readMessage di restituire resCode = 0
+                running = false;
+            }*/
+            
+            if (readMessage(sock, buf) == 0){
+           
+                string sBuf = buf;
+                string responseString;
 
-            string sBuf = buf;
-            string responseString;
+                milliseconds ms = duration_cast< milliseconds >(
+                    system_clock::now().time_since_epoch()
+                );
 
-            resCode = fromStringToMessage(buf, msg);
+                this -> activeMS.store(ms.count());
 
-            if(resCode == 0){
-                        
-                log -> info ("message parsed" );
-                log -> flush();
+                resCode = fromStringToMessage(buf, msg);
 
-                switch(msg.typeCode){
+                if(resCode == 0){
                             
-                    // file update
-                    case 1:
+                    log -> info ("message parsed" );
+                    log -> flush();
 
-                        resCode = handleFileUpdate(msg);
+                    switch(msg.typeCode){
+                                
+                        // file update
+                        case 1:
 
-                    break;
+                            resCode = handleFileUpdate(msg);
 
-                    // file rename
-                    case 2:
+                        break;
 
-                        resCode = handleFileRename(msg);
+                        // file rename
+                        case 2:
 
-                    break;
+                            resCode = handleFileRename(msg);
 
-                    // file creation
-                    case 3:
+                        break;
 
-                        resCode = handleFileCreation(msg);
+                        // file creation
+                        case 3:
 
-                    break;
+                            resCode = handleFileCreation(msg);
 
-                    // file delete
-                    case 4:
+                        break;
 
-                        resCode = handleFileDelete(msg);
+                        // file delete
+                        case 4:
 
-                    break;
+                            resCode = handleFileDelete(msg);
 
-                    // initial configuration
-                    case 5:
+                        break;
 
-                        resCode = 0;
+                        // initial configuration
+                        case 5:
 
-                    break;
+                            resCode = 0;
 
-                    // close connection
-                    case 6:
+                        break;
 
-                        resCode = 0;
-                        running = false;
+                        // close connection
+                        case 6:
 
-                    break;
+                            resCode = 0;
+                            running.store(false);
+
+                        break;
+                    }
+
                 }
 
-            }
+                sendResponse(resCode, msg); 
 
-            sendResponse(resCode, msg);
+            } else { 
+
+                log -> info("going to sleep for 1 second because of error");
+                sleep(1);
+
+            }
 
         } catch (...) {
 
@@ -332,9 +453,7 @@ void Server::ClientConn::waitForMessage(){
 
         }
 
-
-    }            
-    //}
+    }
         
 }
 
@@ -355,8 +474,16 @@ int Server::ClientConn::handleOkResponse(msg::message & response, msg::message &
         response.userName = msg.userName;
 
         if(msg.typeCode == 5) {
+
             string stringConf;
-            selective_search(stringConf, msg);
+
+            if(selective_search(stringConf, msg) < 0){
+
+                log -> error("an error occured exploring path: " + msg.folderPath);
+                return -1;
+
+            }
+
             response.fileContent = stringConf;
         }
         else
@@ -365,7 +492,7 @@ int Server::ClientConn::handleOkResponse(msg::message & response, msg::message &
     } catch (...) {
 
         log -> error("an error occured handling OK response");
-        return -1;
+        return -2;
 
     }
 
@@ -671,16 +798,29 @@ void Server::ClientConn::handleConnection(){
 
     std::thread inboundChannel([this](){
         
-        // set logger for client connection using the server log file
-        initLogger();
+        try{
 
-        // while loop to wait for different messages from client
-        waitForMessage();
-            
-        serv.unregisterClient(sock);
-            
+            // set logger for client connection using the server log file
+            if(initLogger() == 0){
+
+                // while loop to wait for different messages from client
+                waitForMessage();
+                serv.unregisterClient(sock);
+
+                log -> info ("[CLIENT-CONN-" + to_string(this -> sock) + "]: exited from run");
+                log -> flush();
+
+            }
+
+        } catch (exception e){
+
+            string error = e.what();
+            cout << error << endl;
+
+        }
+        
     });
 
     inboundChannel.detach();
-
+    
 }

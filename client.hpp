@@ -18,11 +18,12 @@ using json = nlohmann::json;
 
 class Client {
 
-    conf::user uc;
     std::shared_ptr <spdlog::logger> myLogger;
 
 public:
 
+    conf::user uc;
+    
 	int sock;
     int readConfiguration ();
     int initLogger();

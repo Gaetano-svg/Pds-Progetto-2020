@@ -7,6 +7,67 @@ Server::~Server(){
 
 }   
 
+void Server::checkUserInactivity(){
+
+    while(running){
+
+        log -> info("[CHECK-INACTIVITY]: go to sleep for 60 seconds");
+        log -> flush();
+        sleep(60);
+
+        if (this -> clients.size() > 0){
+
+            for (auto it = clients.begin(); it != clients.end(); ++it)
+            {
+
+                // client socket
+                int sock = it -> first;
+
+                // client object
+                auto client = it -> second;
+
+                try{
+
+                    long msClient = client -> activeMS.load();
+
+                    milliseconds ms = duration_cast< milliseconds >(
+                        system_clock::now().time_since_epoch()
+                    );
+
+                    long msNow = ms.count();
+
+                    long msTotInactiveTime = msNow - msClient;
+
+                    log -> info("socket " + to_string(sock) + " was inactive for " + to_string(msTotInactiveTime));
+                    log -> flush();
+            
+                    if(msTotInactiveTime >= 60000){
+                        
+                        log -> info("[CHECK-INACTIVITY]: client - socket " + to_string(sock) + " will be closed for inactivity (60 seconds)");
+                        log ->flush();
+                        client -> running.store(false);
+
+                        // shutdown both receive and send operations
+                        shutdown(sock, 2);
+
+                    } 
+
+                } catch (...) {
+
+                    log -> error("an error occured checking inactivity for socket " + to_string(sock));
+                }
+
+            }
+
+        }
+
+    }
+
+    log -> info("[CHECK-INACTIVITY]: exited");
+    log -> flush();
+
+}
+
 /* 
 
 RETURN:
@@ -72,6 +133,16 @@ int Server::startListening(){
 
     }
 
+    // run user-inactivity check THREAD
+
+    std::thread checkUserInactivityThread([this](){
+
+        this -> checkUserInactivity();
+
+    });
+
+    checkUserInactivityThread.detach();
+
     while(running) {
 
         try {
@@ -85,10 +156,10 @@ int Server::startListening(){
             int csock;
 
             // wait until client connection
-            {
+            //{
                 //std::lock_guard<mutex> lg(m);
-                csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
-            }
+            csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
+            //}
 
             if(csock<0){
 
@@ -108,7 +179,7 @@ int Server::startListening(){
 
                 // this keeps the client alive until it's destroyed
                 {
-                    //std::lock_guard<mutex> lg(m);
+                    std::unique_lock<mutex> lg(m);
                     clients[csock] = client;
                 }
 
@@ -239,11 +310,18 @@ used to close one client-socket and erase it from the local map
 
 void Server::unregisterClient(int csock){
 
-    std::lock_guard <mutex> lg(m);
-    clients.erase(csock);
-    close(csock);
-    log -> info("");
-    log -> info("Exited from waiting messages from socket: " + to_string(csock) + " \n");
-    log -> flush();    
+    std::unique_lock <mutex> lg(m);
 
+    try {
+
+        clients.erase(csock);
+        close(csock);
+        log -> info("");
+        log -> info("Exited from waiting messages from socket: " + to_string(csock) + " \n");
+        log -> flush();  
+
+    } catch (...) {
+        log -> error("an error occured unregistring client socket " + to_string(csock));
+    }
+  
 }
