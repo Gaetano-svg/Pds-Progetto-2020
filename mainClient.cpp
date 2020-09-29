@@ -3,7 +3,7 @@
 
 using namespace std;
 
-int main()
+int main(int argc, char** args)
 {
 
     // Create Server Object
@@ -19,7 +19,7 @@ int main()
     // send user configuration to server (in order to collect users info)
     //client.sendConfiguration();
 
-    cout << "send create message" << endl;
+    cout <<"try inactivity" << endl;
 
     msg::message fcu {
         "initconf",
@@ -27,7 +27,7 @@ int main()
         "test2",
         "test2",
         "test conf 2",
-        client.uc.name
+        "gaetano"
     };
 
     client.serverConnection();
@@ -75,7 +75,8 @@ int main()
 
     cout << response << endl;
 
-    sleep(200);
+    sleep(1200);
+    client.serverDisconnection();
 
     cout << "exit" << endl;
 

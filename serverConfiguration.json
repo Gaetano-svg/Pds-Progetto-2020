@@ -1,5 +1,7 @@
 {
     "ip" : "127.0.0.1",
     "port" : "3524",
-    "backupFolder" : "/home/gaetano/Desktop/BackupFolder"
+    "backupFolder" : "/home/gaetano/Desktop/BackupFolder",
+    "userInactivityMS" : 60000,
+    "numberActiveClients" : 2
 }

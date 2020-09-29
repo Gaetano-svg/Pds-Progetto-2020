@@ -23,6 +23,9 @@ int main()
 
     cout << "exit" << endl;
 
+    // bisogna aggiungere il caso di timeout per ricevere la risposta da parte del SERVER
+    // lato server non importa ciò -> abbiamo il thread che controlla l'inattività del CLIENT
+
     return 0;
 
 }

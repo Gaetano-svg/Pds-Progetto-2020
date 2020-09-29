@@ -41,9 +41,9 @@ void Server::checkUserInactivity(){
                     log -> info("socket " + to_string(sock) + " was inactive for " + to_string(msTotInactiveTime));
                     log -> flush();
             
-                    if(msTotInactiveTime >= 60000){
+                    if(msTotInactiveTime >= this -> sc.userInactivityMS){
                         
-                        log -> info("[CHECK-INACTIVITY]: client - socket " + to_string(sock) + " will be closed for inactivity (60 seconds)");
+                        log -> info("[CHECK-INACTIVITY]: client - socket " + to_string(sock) + " will be closed for inactivity (" + to_string(sc.userInactivityMS) + " milliSeconds)");
                         log ->flush();
                         client -> running.store(false);
 
@@ -85,6 +85,8 @@ int Server::startListening(){
     running = true;
     int opt = 1;
 
+    this -> activeConnections.store(0);
+
     // initialize socket
     sock = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -124,7 +126,7 @@ int Server::startListening(){
     }
 
     // listen to N different clients
-    if(::listen(sock, 10)<0){
+    if(::listen(sock, 0)<0){
 
         string error = strerror(errno);
         log -> error("listen error: " + error);
@@ -149,42 +151,59 @@ int Server::startListening(){
 
             sockaddr_in caddr;
             socklen_t addrlen = sizeof(caddr);
-
-            log -> info("waiting for client connection");
-            log -> flush();
-
             int csock;
 
-            // wait until client connection
-            //{
-                //std::lock_guard<mutex> lg(m);
-            csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
-            //}
+            if(this -> activeConnections < this -> sc.numberActiveClients){
+            
+                log -> info("waiting for client connection");
+                log -> flush();
 
-            if(csock<0){
+                // wait until client connection
+                csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
 
-                string error = strerror(errno);
-                log -> error("accept error: " + error);
+                if(csock<0){
+
+                    string error = strerror(errno);
+                    log -> error("accept error: " + error);
+
+                } else {
+
+                    char buff[8];
+
+                    log -> info("the socket " + to_string(csock) + " was accepted");
+                    log -> flush();
+
+                    //get socket ip address
+                    struct sockaddr* ccaddr = (struct sockaddr*)&caddr;
+                    string clientIp = ccaddr -> sa_data;
+
+                    // for each client allocate a ClientConnection object
+                    auto client = shared_ptr<ClientConn>(new ClientConn(*this, this -> logFile, csock, this -> sc,  clientIp));
+
+                    // this keeps the client alive until it's destroyed
+                    {
+                        std::unique_lock<mutex> lg(m);
+                        clients[csock] = client;
+                    }
+
+                    // handle connection should return immediately
+                    client->handleConnection();
+
+                }
 
             } else {
 
-                char buff[8];
+                try{
 
-                //get socket ip address
-                struct sockaddr* ccaddr = (struct sockaddr*)&caddr;
-                string clientIp = ccaddr -> sa_data;
+                    log -> info("There are " + to_string(this -> activeConnections) + " alive; go to sleep before accepting another one");
+                    log -> flush();
+                    sleep(10);
 
-                // for each client allocate a ClientConnection object
-                auto client = shared_ptr<ClientConn>(new ClientConn(*this, this -> logFile, csock, this -> sc,  clientIp));
+                } catch (...) {
 
-                // this keeps the client alive until it's destroyed
-                {
-                    std::unique_lock<mutex> lg(m);
-                    clients[csock] = client;
+                    log -> error("an error occured while sleeping for 10 seconds");
+
                 }
-
-                // handle connection should return immediately
-                client->handleConnection();
 
             }
 
@@ -259,7 +278,9 @@ int Server::readConfiguration (string file) {
         this -> sc = {
             jServerConf["ip"].get<string>(),
             jServerConf["port"].get<string>(),
-            jServerConf["backupFolder"].get<string>()
+            jServerConf["backupFolder"].get<string>(),
+            jServerConf["userInactivityMS"].get<int>(),
+            jServerConf["numberActiveClients"].get<int>()
         };
 
     } catch (...) {
@@ -318,7 +339,9 @@ void Server::unregisterClient(int csock){
         close(csock);
         log -> info("");
         log -> info("Exited from waiting messages from socket: " + to_string(csock) + " \n");
-        log -> flush();  
+        log -> flush();
+        
+        this -> activeConnections --;
 
     } catch (...) {
         log -> error("an error occured unregistring client socket " + to_string(csock));

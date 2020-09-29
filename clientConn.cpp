@@ -364,19 +364,17 @@ void Server::ClientConn::waitForMessage(){
 
             string buf;
             
-            /*{
-                std::unique_lock<mutex> ul (this -> mRunning);
-                // settarlo a false prima del messaggio permette di capire se tra 60 secondi l'utente è ancora attivo
-                // in caso contrario il server chiuderà il socket non permettendo quindi la readMessage di restituire resCode = 0
-                running = false;
-            }*/
-            
+            milliseconds ms = duration_cast< milliseconds >(
+                system_clock::now().time_since_epoch()
+            );
+            this -> activeMS.store(ms.count());
+
             if (readMessage(sock, buf) == 0){
            
                 string sBuf = buf;
                 string responseString;
 
-                milliseconds ms = duration_cast< milliseconds >(
+                ms = duration_cast< milliseconds >(
                     system_clock::now().time_since_epoch()
                 );
 
@@ -433,6 +431,7 @@ void Server::ClientConn::waitForMessage(){
                             running.store(false);
 
                         break;
+                        
                     }
 
                 }
@@ -800,6 +799,7 @@ void Server::ClientConn::handleConnection(){
         
         try{
 
+            this -> serv.activeConnections ++; 
             // set logger for client connection using the server log file
             if(initLogger() == 0){
 

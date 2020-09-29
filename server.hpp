@@ -42,6 +42,7 @@ private:
     std::vector <conf::user> usersPath;
     shared_ptr <spdlog::logger> log;
     nlohmann::json jServerConf;
+    atomic_int activeConnections;
 
     // the server configuration containing ip and port informations
     conf::server sc;
