@@ -9,7 +9,7 @@ Server::~Server(){
 
 void Server::checkUserInactivity(){
 
-    while(running){
+    while(running.load()){
 
         log -> info("[CHECK-INACTIVITY]: go to sleep for 60 seconds");
         log -> flush();
@@ -68,6 +68,30 @@ void Server::checkUserInactivity(){
 
 }
 
+/*
+
+
+
+*/
+
+bool Server::isClosed(int sock){
+
+    fd_set rfd;
+    FD_ZERO(&rfd);
+    FD_SET(sock, &rfd);
+    timeval tv = {0};
+    select(sock + 1, &rfd, 0, 0, &tv);
+
+    if (!FD_ISSET(sock, &rfd))
+        return false;
+    
+    int n = 0;
+    ioctl(sock, FIONREAD, &n);
+
+    return n == 0;
+
+}
+
 /* 
 
 RETURN:
@@ -82,7 +106,7 @@ RETURN:
 
 int Server::startListening(){
 
-    running = true;
+    running.store(true);
     int opt = 1;
 
     this -> activeConnections.store(0);
@@ -145,7 +169,7 @@ int Server::startListening(){
 
     checkUserInactivityThread.detach();
 
-    while(running) {
+    while(running.load()) {
 
         try {
 
@@ -153,6 +177,7 @@ int Server::startListening(){
             socklen_t addrlen = sizeof(caddr);
             int csock;
 
+            // before accepting the socket check the number of active client connections alive
             if(this -> activeConnections < this -> sc.numberActiveClients){
             
                 log -> info("waiting for client connection");
@@ -160,34 +185,41 @@ int Server::startListening(){
 
                 // wait until client connection
                 csock = accept(sock, (struct sockaddr*) &caddr, &addrlen);
+                
+                if(!isClosed(csock)) {
 
-                if(csock<0){
+                    if(csock <= 0){
 
-                    string error = strerror(errno);
-                    log -> error("accept error: " + error);
+                        string error = strerror(errno);
+                        log -> error("accept error: " + error);
+
+                    } else {
+
+                        log -> info("the socket " + to_string(csock) + " was accepted");
+                        log -> flush();
+
+                        //get socket ip address
+                        struct sockaddr* ccaddr = (struct sockaddr*)&caddr;
+                        string clientIp = ccaddr -> sa_data;
+
+                        // for each client allocate a ClientConnection object
+                        auto client = shared_ptr<ClientConn>(new ClientConn(*this, this -> logFile, csock, this -> sc,  clientIp));
+
+                        // this keeps the client alive until it's destroyed
+                        {
+                            std::unique_lock<mutex> lg(m);
+                            clients[csock] = client;
+                        }
+
+                        // handle connection should return immediately
+                        client->handleConnection();
+
+                    }
 
                 } else {
 
-                    char buff[8];
-
-                    log -> info("the socket " + to_string(csock) + " was accepted");
-                    log -> flush();
-
-                    //get socket ip address
-                    struct sockaddr* ccaddr = (struct sockaddr*)&caddr;
-                    string clientIp = ccaddr -> sa_data;
-
-                    // for each client allocate a ClientConnection object
-                    auto client = shared_ptr<ClientConn>(new ClientConn(*this, this -> logFile, csock, this -> sc,  clientIp));
-
-                    // this keeps the client alive until it's destroyed
-                    {
-                        std::unique_lock<mutex> lg(m);
-                        clients[csock] = client;
-                    }
-
-                    // handle connection should return immediately
-                    client->handleConnection();
+                    log -> error("socket " + to_string(csock) + " was closed; the thread won't be created");
+                    shutdown(csock, 2);
 
                 }
 
@@ -280,7 +312,8 @@ int Server::readConfiguration (string file) {
             jServerConf["port"].get<string>(),
             jServerConf["backupFolder"].get<string>(),
             jServerConf["userInactivityMS"].get<int>(),
-            jServerConf["numberActiveClients"].get<int>()
+            jServerConf["numberActiveClients"].get<int>(),
+            jServerConf["secondTimeout"].get<int>()
         };
 
     } catch (...) {
@@ -336,7 +369,7 @@ void Server::unregisterClient(int csock){
     try {
 
         clients.erase(csock);
-        close(csock);
+        shutdown(csock, 2);
         log -> info("");
         log -> info("Exited from waiting messages from socket: " + to_string(csock) + " \n");
         log -> flush();

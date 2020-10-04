@@ -264,14 +264,16 @@ int Server::ClientConn::readMessage(int fd, string & bufString) {
     std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
     std::string receivedString;     // assign buffered data to a 
     int resCode = 0;
+    fd_set set;
+    struct timeval timeout;
+    int iResult = 0;
     
     try {
 
-        // Receive the message length
+        // Receive the message length*/
         resCode = recv(fd,&rcvDataLength,sizeof(uint64_t),0);
         
         if (resCode < 0){
-        //if (select(fd,&rcvDataLength,sizeof(uint64_t),0, &m_timeInterval) < 0){
 
             string error = strerror(errno);
             
@@ -292,6 +294,21 @@ int Server::ClientConn::readMessage(int fd, string & bufString) {
 
             // resize string with the necessary size
             rcvBuf.resize(rcvDataLength,0x00); 
+
+            FD_ZERO(&set);
+            FD_SET(sock, &set);
+
+            // set timeout value
+            timeout.tv_sec = server.secondTimeout;
+            timeout.tv_usec = 0;
+            iResult = select(sock + 1, &set, NULL, NULL, &timeout);
+
+            if(iResult <= 0){
+
+                log -> error("timeout on receiving message DATA");
+                return -5;
+
+            }
 
             // Receive the string data
             resCode = recv(fd,&(rcvBuf[0]),rcvDataLength,0);
@@ -330,7 +347,7 @@ int Server::ClientConn::readMessage(int fd, string & bufString) {
 
         log -> error ("An exception occured reading Message received from client: " + excString);
         
-        return -5;
+        return -6;
 
     }
     
@@ -367,6 +384,7 @@ void Server::ClientConn::waitForMessage(){
             milliseconds ms = duration_cast< milliseconds >(
                 system_clock::now().time_since_epoch()
             );
+
             this -> activeMS.store(ms.count());
 
             if (readMessage(sock, buf) == 0){
@@ -448,6 +466,8 @@ void Server::ClientConn::waitForMessage(){
         } catch (...) {
 
             log -> error("unexpected error happened");
+            log -> info("going to sleep for 1 second because of error");
+            sleep(1);
             return;
 
         }
@@ -797,25 +817,43 @@ void Server::ClientConn::handleConnection(){
 
     std::thread inboundChannel([this](){
         
-        try{
+        this -> serv.activeConnections ++;
 
-            this -> serv.activeConnections ++; 
-            // set logger for client connection using the server log file
-            if(initLogger() == 0){
+        // check if socket is closed
+        if( !serv.isClosed(sock) ){
 
-                // while loop to wait for different messages from client
-                waitForMessage();
-                serv.unregisterClient(sock);
+            msg::message msg;
 
-                log -> info ("[CLIENT-CONN-" + to_string(this -> sock) + "]: exited from run");
-                log -> flush();
+            try{
+
+                // set logger for client connection using the server log file
+                if(initLogger() == 0){
+
+                    // send response to CONNECTION MESSAGE by the client
+                    msg.fileContent = "socket accepted";
+                    sendResponse(0, msg);
+
+                    // while loop to wait for different messages from client
+                    waitForMessage();
+
+                    serv.unregisterClient(sock);
+
+                    log -> info ("[CLIENT-CONN-" + to_string(this -> sock) + "]: exited from run");
+                    log -> flush();
+
+                }
+
+            } catch (exception e){
+
+                string error = e.what();
+                cout << error << endl;
 
             }
 
-        } catch (exception e){
+        } else {
 
-            string error = e.what();
-            cout << error << endl;
+            // can't log because the logger wasn't initialized; in any case the socket will be closed
+            serv.unregisterClient(sock);
 
         }
         

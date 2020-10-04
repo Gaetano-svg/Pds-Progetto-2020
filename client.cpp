@@ -39,7 +39,8 @@ int Client::readConfiguration () {
             jUserConf["serverIp"].get<string>(),
             jUserConf["serverPort"].get<string>(),
             jUserConf["name"].get<string>(),
-            jUserConf["folderPath"].get<string>()
+            jUserConf["folderPath"].get<string>(),
+            jUserConf["secondTimeout"].get<int>()
         };
 
     } catch (...) {
@@ -89,18 +90,20 @@ RETURN:
  0 ---> no error
 -1 ---> error creating socket
 -2 ---> server address not supported
+-3 ---> socket won't be accepted
 
 */
 
 int Client::serverConnection () {
 
     // Create socket
+    std::string response;
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
 	{
         string error = strerror(errno);
 		myLogger -> error("Can't create socket, Error: " + error);
-        close(sock);
+        shutdown(sock, 2);
 		return -1;
 	}
 
@@ -115,7 +118,7 @@ int Client::serverConnection () {
     if ((inet_pton(AF_INET, uc.serverIp.c_str(), &hint.sin_addr)) <= 0)
     {
         myLogger -> error("Invalid address: address " + uc.serverIp + " not supported");
-        close(sock);
+        shutdown(sock, 2);
         return -2;
     }
     
@@ -130,6 +133,15 @@ int Client::serverConnection () {
         myLogger -> flush();
         sleep(5);
 	}
+
+    // wait for response from connection
+    if(readMessageResponse(response) < 0){
+
+		myLogger -> error("Socket not accepted");
+        shutdown(sock, 2);
+        return -3;
+
+    }
 
     myLogger -> info ("connected to server " + uc.serverIp + ":" + uc.serverPort);
     myLogger -> flush();
@@ -176,7 +188,7 @@ int Client::serverDisconnection () {
         return -2;
 
 	// Disconnect from server
-    resCode = close(sock);
+    resCode = shutdown(sock, 2);
 
     if(resCode < 0)
         return -3;
@@ -262,6 +274,7 @@ RETURN:
 -2 ---> error receiving message DATA
 -3 ---> unexpected error
 -4 ---> socket CLOSED
+-5 ---> TIMEOUT
 
 */
 
@@ -270,14 +283,34 @@ int Client::readMessageResponse(string & response){
     uint64_t rcvDataLength;
     std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
     int rcvCode = 0;
-    
+    fd_set set;
+    struct timeval timeout;
+    int iResult = 0;
+
     try {
+
+
+        FD_ZERO(&set);
+        FD_SET(sock, &set);
+
+        // set timeout value
+        timeout.tv_sec = uc.secondTimeout;
+        timeout.tv_usec = 0;
+        iResult = select(sock + 1, &set, NULL, NULL, &timeout);
+
+        if(iResult <= 0){
+
+            myLogger -> error("timeout on receiving response LENGTH");
+            return -5;
+
+        }
 
         myLogger -> info("wait For response");
         myLogger -> flush();
 
         // Receive the message length
         rcvCode = recv(sock,&rcvDataLength,sizeof(uint64_t),0);
+
         if(rcvCode < 0){
 
             myLogger -> error("an error occured receiving response LENGTH");
@@ -294,6 +327,21 @@ int Client::readMessageResponse(string & response){
 
         myLogger -> info ("response size received: " + to_string(rcvDataLength));
         myLogger -> flush();
+
+        FD_ZERO(&set);
+        FD_SET(sock, &set);
+
+        // set timeout value
+        timeout.tv_sec = uc.secondTimeout;
+        timeout.tv_usec = 0;
+        iResult = select(sock + 1, &set, NULL, NULL, &timeout);
+
+        if(iResult <= 0){
+
+            myLogger -> error("timeout on receiving response DATA");
+            return -5;
+
+        }
 
         // Receive the string data
         rcvCode = recv(sock,&(rcvBuf[0]),rcvDataLength,0);

@@ -1,6 +1,9 @@
 #include <iostream>
 #include <fstream>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <stdexcept>
 #include <sys/types.h>
@@ -56,7 +59,7 @@ private:
     
 public:
 
-    bool running;
+    atomic_bool running;
     class ClientConn {
 
         public:
@@ -119,5 +122,7 @@ public:
     ~Server();
 
     void unregisterClient(int csock);
+
+    bool isClosed (int sock);
 
 };

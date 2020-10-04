@@ -17,9 +17,10 @@ int main(int argc, char** args)
     client.initLogger();
 
     // send user configuration to server (in order to collect users info)
-    //client.sendConfiguration();
 
     cout <<"try inactivity" << endl;
+
+    client.serverConnection();
 
     msg::message fcu {
         "initconf",
@@ -29,12 +30,11 @@ int main(int argc, char** args)
         "test conf 2",
         "gaetano"
     };
-
-    client.serverConnection();
     
     client.sendMessage(fcu);
     client.readMessageResponse(response);
-    //client.serverDisconnection();
+
+    sleep(2);
 
     cout << "send create message 2" << endl;
 
@@ -48,11 +48,10 @@ int main(int argc, char** args)
 
     };
 
-    sleep(2);
-    //client.serverConnection();
     client.sendMessage(fcu2);
     client.readMessageResponse(response);
 
+    sleep(20);
 
     cout << "send create message 3" << endl;
 
@@ -66,16 +65,9 @@ int main(int argc, char** args)
 
     };
 
-    sleep(20);
-    //client.serverConnection();
     client.sendMessage(fcu3);
     client.readMessageResponse(response);
 
-    client.serverDisconnection();
-
-    cout << response << endl;
-
-    sleep(1200);
     client.serverDisconnection();
 
     cout << "exit" << endl;

@@ -3,5 +3,6 @@
     "port" : "3524",
     "backupFolder" : "/home/gaetano/Desktop/BackupFolder",
     "userInactivityMS" : 60000,
-    "numberActiveClients" : 2
+    "numberActiveClients" : 2,
+    "secondTimeout" : 5
 }

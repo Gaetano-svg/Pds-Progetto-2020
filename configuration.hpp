@@ -10,6 +10,7 @@ namespace conf {
         std::string serverPort;
         std::string name;
         std::string folderPath;
+        int secondTimeout;
 
     };
 
@@ -21,6 +22,7 @@ namespace conf {
         std::string backupFolder;
         int userInactivityMS;
         int numberActiveClients;
+        int secondTimeout;
 
     };
 
