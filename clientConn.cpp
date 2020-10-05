@@ -6,6 +6,7 @@
 #include "boost/filesystem.hpp"
 
 using namespace boost::filesystem;
+namespace fs = std::experimental::filesystem;
 
 /*
 
@@ -585,20 +586,43 @@ RETURN:
 
 int Server::ClientConn::handleFileCreation(msg::message msg){
 
-    string path = server.backupFolder + "/" + msg.userName + "/" + msg.folderPath;
-    boost::filesystem::path dstFolder = path, filePath;
+    string serverBackupFolder, msgFolderPath, path;
+    fs::path dstFolder, filePath;
 
+    serverBackupFolder = server.backupFolder;
+    msgFolderPath = msg.folderPath;
+
+    //fs::path dstFolder = path, filePath;
+    
     try {
         
-        if( ! boost::filesystem::exists(dstFolder))
-            boost::filesystem::create_directories(dstFolder);
 
-        path +=  + "/" + msg.fileName;
+        serverBackupFolder = server.backupFolder;
+        msgFolderPath = msg.folderPath;
+
+
+        #       ifdef BOOST_POSIX_API   //workaround for user-input files
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '\\', '/');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '\\', '/');         
+        #       else
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '/', '\\');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '/', '\\');         
+        #       endif
+
+        path = serverBackupFolder + separator() + msg.userName + separator() + msgFolderPath;
+
+        dstFolder = path;
+
+        if( ! fs::exists(dstFolder))
+            fs::create_directories(dstFolder);
+
+        path += separator() + msg.fileName;
 
         filePath = path;
+        
 
         // if the file already exist doesn't need to be created
-        if(boost::filesystem::exists(filePath)){
+        if(fs::exists(filePath)){
                 
             log -> info("the file " + path + " already exists: the output will be redirected on it");
             log -> flush();
@@ -647,22 +671,45 @@ RETURN:
 
 int Server::ClientConn::handleFileUpdate(msg::message msg){
 
-    string path = server.backupFolder + "/" + msg.userName + "/" + msg.folderPath;
-    boost::filesystem::path dstFolder = path, filePath;
+    string serverBackupFolder, msgFolderPath, path;
+    fs::path dstFolder, filePath;
 
+    serverBackupFolder = server.backupFolder;
+    msgFolderPath = msg.folderPath;
+
+    //fs::path dstFolder = path, filePath;
+    
     try {
+        
 
-        if( ! boost::filesystem::exists(dstFolder))
-            boost::filesystem::create_directories(dstFolder);
-            
-        path +=  + "/" + msg.fileName;
-            
+        serverBackupFolder = server.backupFolder;
+        msgFolderPath = msg.folderPath;
+
+
+        #       ifdef BOOST_POSIX_API   //workaround for user-input files
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '\\', '/');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '\\', '/');         
+        #       else
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '/', '\\');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '/', '\\');         
+        #       endif
+
+        path = serverBackupFolder + separator() + msg.userName + separator() + msgFolderPath;
+
+        dstFolder = path;
+
+        if( ! fs::exists(dstFolder))
+            fs::create_directories(dstFolder);
+
+        path +=  separator() + msg.fileName;
+
         filePath = path;
+        
 
-        // if the file already doesn't exist must be created 
-        if(!boost::filesystem::exists(filePath)){
+        // if the file already exist doesn't need to be created
+        if(!fs::exists(filePath)){
                 
-            log -> info("the file " + path + " doesn't exist: the output will be redirected on it");
+            log -> info("the file " + path + " doesn't exists: the output will be redirected on it");
             log -> flush();
 
         }
@@ -708,45 +755,69 @@ RETURN:
 
 int Server::ClientConn::handleFileRename(msg::message msg){
 
-    string path = server.backupFolder + "/" + msg.userName + "/" + msg.folderPath;
-    boost::filesystem::path dstFolder = path;
+    string serverBackupFolder, msgFolderPath, path, oldPathString, newPathString;
+    fs::path dstFolder;
 
-    string oldPathString, newPathString;
+    try {
 
-    // if the path doesn't exist return because there isn't any files inside
-    if( ! boost::filesystem::exists(dstFolder))
-        return -1;
+        serverBackupFolder = server.backupFolder;
+        msgFolderPath = msg.folderPath;
 
-    oldPathString = path + "/" + msg.fileName;
-    newPathString = path + "/" + msg.fileContent;
+        #       ifdef BOOST_POSIX_API   //workaround for user-input files
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '\\', '/');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '\\', '/');         
+        #       else
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '/', '\\');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '/', '\\');         
+        #       endif
 
-    boost::filesystem::path oldPath = oldPathString;
-    boost::filesystem::path newPath = newPathString;
+        path = serverBackupFolder + separator() + msg.userName + separator() + msgFolderPath;
 
-    // if the file doesn't exist return 
-    if( ! boost::filesystem::exists(oldPath)) {
+        dstFolder = path;
 
-        log -> error("file: " + oldPathString + " doesn't exist!");
-        log -> flush();
+        // if the path doesn't exist return because there isn't any files inside
+        if( ! fs::exists(dstFolder))
+            return -1;
 
-        return -2;
-    }
+        oldPathString = path + separator() + msg.fileName;
+        newPathString = path + separator() + msg.fileContent;
 
-    bool completed = false;
-    while(!completed)
-    {
-        try
-        {
-            boost::filesystem::rename(oldPath, newPath);
-            completed = true;
-        }
-        catch(...) 
-        {
+        fs::path oldPath = oldPathString;
+        fs::path newPath = newPathString;
 
-            log -> error("file: " + oldPathString + " currently used by others; sleep for 5 seconds and retry later ");
+        // if the file doesn't exist return 
+        if( ! fs::exists(oldPath)) {
+
+            log -> error("file: " + oldPathString + " doesn't exist!");
             log -> flush();
-            sleep(5);
+
+            return -2;
         }
+
+        bool completed = false;
+        while(!completed)
+        {
+
+            try
+            {
+                fs::rename(oldPath, newPath);
+                completed = true;
+            }
+            catch(...) 
+            {
+
+                log -> error("file: " + oldPathString + " currently used by others; sleep for 5 seconds and retry later ");
+                log -> flush();
+                sleep(5);
+            }
+
+        }    
+
+    } catch (...) {
+
+        log -> error("an error occured handling file update: " + path);
+        return -20;
+
     }
 
     log -> info("rename of file: " + oldPathString + " into " + newPathString + " completed ");
@@ -763,41 +834,70 @@ RETURN:
 */
 
 int Server::ClientConn::handleFileDelete(msg::message msg){
+    string serverBackupFolder, msgFolderPath, path;
+    fs::path dstFolder, filePath;
 
-    string path = server.backupFolder + "/" + msg.userName + "/" + msg.folderPath;
-    boost::filesystem::path dstFolder = path;
+    serverBackupFolder = server.backupFolder;
+    msgFolderPath = msg.folderPath;
 
-    // if the path doesn't exist return because there isn't any files inside
-    if( ! boost::filesystem::exists(dstFolder))
-        return -1; // folder doesn't exist
-
-    path +=  + "/" + msg.fileName;
-
-    boost::filesystem::path oldPath = path;
-
-    // if the file doesn't exist return 
-    if( ! boost::filesystem::exists(oldPath)) {
-
-        log -> error("file: " + path + " doesn't exist!");
-        log -> flush();
+    //fs::path dstFolder = path, filePath;
     
-        return -2; // file doesn't exist
-    }
+    try {
+        
 
-    bool completed = false;
-    while(!completed)
-    {
-        try
-        {
-            boost::filesystem::remove_all(path);
-            completed = true;
+        serverBackupFolder = server.backupFolder;
+        msgFolderPath = msg.folderPath;
+
+
+        #       ifdef BOOST_POSIX_API   //workaround for user-input files
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '\\', '/');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '\\', '/');         
+        #       else
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '/', '\\');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '/', '\\');         
+        #       endif
+
+        path = serverBackupFolder + separator() + msg.userName + separator() + msgFolderPath;
+
+        dstFolder = path;
+
+        if( ! fs::exists(dstFolder))
+            return -1; // folder doesn't exist
+
+        path +=  separator() + msg.fileName;
+
+        filePath = path;
+        
+
+        // if the file already exist doesn't need to be created
+        if(!fs::exists(filePath)){
+                
+            log -> error("the file " + path + " doesn't exists!");
+
+            return -2; // file doesn't exist
         }
-        catch(...) 
+
+        bool completed = false;
+        while(!completed)
         {
-            log -> error("file: " + path + " currently used by others; sleep for 5 seconds and retry later ");
-            log -> flush();
-            sleep(5);
+            try
+            {
+                fs::remove_all(path);
+                completed = true;
+            }
+            catch(...) 
+            {
+                log -> error("file: " + path + " currently used by others; sleep for 5 seconds and retry later ");
+                log -> flush();
+                sleep(5);
+            }
         }
+
+    } catch(...){
+
+        log -> error("an error occured handling file update: " + path);
+        return -20;
+
     }
 
     log -> info("delete of file: " + path + " completed ");

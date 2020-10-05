@@ -41,7 +41,7 @@ int main(int argc, char** args)
     msg::message fcu2 {
         "create",
         3,
-        "test4",
+        "C:\\Users\\TanoPC\\Desktop",
         "test4",
         "test create",
         client.uc.name
@@ -51,16 +51,59 @@ int main(int argc, char** args)
     client.sendMessage(fcu2);
     client.readMessageResponse(response);
 
-    sleep(20);
-
-    cout << "send create message 3" << endl;
-
-    msg::message fcu3 {
+    fcu2 = {
         "create",
         3,
+        "C:\\Users\\TanoPC\\Desktop",
         "test5",
+        "test create 2",
+        client.uc.name
+
+    };
+
+    client.sendMessage(fcu2);
+    client.readMessageResponse(response);
+
+    sleep(20);
+
+    fcu2 = {
+
+        "delete",
+        4,
+        "C:\\Users\\TanoPC\\Desktop",
         "test5",
-        "test create",
+        "test delete 2",
+        client.uc.name
+
+    };
+
+    client.sendMessage(fcu2);
+    client.readMessageResponse(response);
+
+    sleep(20);
+
+    fcu2 = {
+        
+        "delete",
+        2,
+        "C:\\Users\\TanoPC\\Desktop",
+        "test4",
+        "test4rename",
+        client.uc.name
+
+    };
+
+    client.sendMessage(fcu2);
+    client.readMessageResponse(response);
+
+    cout << "send update message 3" << endl;
+
+    msg::message fcu3 {
+        "update",
+        1,
+        "C:\\Users\\TanoPC",
+        "test4",
+        "test update",
         client.uc.name
 
     };

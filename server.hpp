@@ -1,5 +1,7 @@
 #include <iostream>
 #include <fstream>
+#include <cstdint>
+#include <experimental/filesystem>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
@@ -63,6 +65,16 @@ public:
     class ClientConn {
 
         public:
+
+            inline string separator()
+            {
+                #ifdef _WIN32
+                    return "\\";
+                #else
+                    return "/";
+                #endif
+            }
+
 
             std::mutex mRunning;
             Server & serv;
