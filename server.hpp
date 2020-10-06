@@ -64,7 +64,7 @@ public:
     atomic_bool running;
     class ClientConn {
 
-        public:
+        private:
 
             inline string separator()
             {
@@ -75,25 +75,14 @@ public:
                 #endif
             }
 
-
-            std::mutex mRunning;
             Server & serv;
             conf::server server;
             int sock;
             string ip;
             string logFile;
             string localPath;  // path of client folder
-            atomic_bool running;
-            atomic_long activeMS;
 
             shared_ptr <spdlog::logger> log;
-
-            
-            ClientConn(Server & serv, string& logFile, int& sock, conf::server server, string clientIp): serv(serv), ip(clientIp), logFile(logFile), sock(sock), server(server){
-                running.store(true);
-            };
-
-            void handleConnection();
 
             void waitUserConfiguration();
             int initLogger();
@@ -114,7 +103,19 @@ public:
 
             string compute_hash(const std::string file_path);
             void sendResponse(int resCode, msg::message msg );
-            
+        
+        public:
+
+            std::mutex mRunning;
+            atomic_bool running;
+            atomic_long activeMS;
+
+            ClientConn(Server & serv, string& logFile, int& sock, conf::server server, string clientIp): serv(serv), ip(clientIp), logFile(logFile), sock(sock), server(server){
+                running.store(true);
+            };
+
+            void handleConnection();
+
     };
 
     //using pClient = std::shared_ptr<ClientConn>;

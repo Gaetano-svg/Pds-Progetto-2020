@@ -85,6 +85,30 @@ int Client::initLogger () {
 
 /*
 
+Check if the connection with the server is CLOSED
+
+*/
+
+bool Client::isClosed(){
+
+    fd_set rfd;
+    FD_ZERO(&rfd);
+    FD_SET(sock, &rfd);
+    timeval tv = {0};
+    select(sock + 1, &rfd, 0, 0, &tv);
+
+    if (!FD_ISSET(sock, &rfd))
+        return false;
+    
+    int n = 0;
+    ioctl(sock, FIONREAD, &n);
+
+    return n == 0;
+
+}
+
+/*
+
 RETURN:
 
  0 ---> no error
@@ -179,13 +203,21 @@ int Client::serverDisconnection () {
 
     resCode = sendMessage(fcu2);
     
-    if(resCode < 0)
+    if(resCode < 0) {
+
+        shutdown(sock, 2);
         return -1;
+
+    }
 
     resCode = readMessageResponse(response);
 
-    if(resCode < 0)
+    if(resCode < 0) {
+
+        shutdown(sock, 2);
         return -2;
+        
+    }
 
 	// Disconnect from server
     resCode = shutdown(sock, 2);
@@ -405,52 +437,3 @@ int Client::fromStringToMessage(string msg, msg::message& message){
 
 }
 
-/*
-
-RETURN:
-
- 0 ---> no error
--1 ---> error receiving data length
--2 ---> error receiving data
--3 ---> unexpected error
-
-*/
-
-int Client::readConfigurationResponse(string & response) {
-
-    uint64_t rcvDataLength;
-    string bufString;
-    std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
-
-    try {
-
-        // Receive the message length
-        if(recv(sock,&rcvDataLength,sizeof(uint64_t),0) < 0){
-
-            myLogger -> error("an error occured waiting for CONF RESPONSE LENGTH");
-            return -1;
-
-        } 
-        
-        rcvBuf.resize(rcvDataLength,0x00); // with the necessary size
-
-        // Receive the string data
-        if(recv(sock,&(rcvBuf[0]),rcvDataLength,0) < 0){
-
-            myLogger -> error("an error occured waiting for CONF RESPONSE DATA");
-            return -2;
-
-        }
-
-        response.assign(rcvBuf.begin(), rcvBuf.end());
-
-    } catch (...) {
-
-        myLogger -> error ("an unexpected error happened reading configuration response");
-        return -3;
-
-    }
-    
-    return 0;
-
-}

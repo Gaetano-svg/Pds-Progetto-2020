@@ -2,6 +2,9 @@
 #include <fstream>
 #include <string>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/time.h>
 #include <boost/filesystem.hpp>
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -29,11 +32,9 @@ public:
     int initLogger();
     int serverConnection();
     int serverDisconnection();
+    bool isClosed ();
 
-    int sendConfiguration();
     int sendMessage(msg::message msg);
-
-    int readConfigurationResponse (string & response);
     int readMessageResponse (string & response);
     
     int fromStringToMessage(string msg, msg::message& message);

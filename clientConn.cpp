@@ -543,7 +543,6 @@ int Server::ClientConn::handleErrorResponse(msg::message & response, msg::messag
                 response.fileContent = "Folder doesn't exist!";
             break;
 
-
             case -2:
                 response.type = "missingFileError";
                 response.fileContent = "File doesn't exist!";
@@ -555,14 +554,15 @@ int Server::ClientConn::handleErrorResponse(msg::message & response, msg::messag
             break;
 
             case -11:
-                response.type = "userConfigurationParsingStringError";
-                response.fileContent = "An error happened during the parsing of the user configuration received from the client";
+                response.type = "updateBackupFileError";
+                response.fileContent = "An error happened during the update of server backup folder";
             break;
 
             case -20:
                 response.type = "genericError";
                 response.fileContent = "A generic error";
             break;
+
         }
 
     } 
@@ -629,15 +629,17 @@ int Server::ClientConn::handleFileCreation(msg::message msg){
 
         }
 
+        int retryCount = 0;
         bool completed = false;
-        while(!completed)
+
+        while(!completed && retryCount < 5)
         {
             try
             {
+                retryCount ++;
                 std::ofstream file(path); //open in constructor
                 file << msg.fileContent;
-                completed = true;
-                
+                completed = true;                
             }
             catch(...) 
             {
@@ -647,7 +649,15 @@ int Server::ClientConn::handleFileCreation(msg::message msg){
                 sleep(5);
 
             }
-        } 
+        }
+
+        if(!completed || retryCount >= 5){
+
+            log -> error("file: " + path + " couldn't be updated because of internal errors ");
+            log -> flush();
+            return -11;
+
+        }
 
     } catch (...) {
 
@@ -714,11 +724,14 @@ int Server::ClientConn::handleFileUpdate(msg::message msg){
 
         }
         
+        int retryCount = 0;
         bool completed = false;
-        while(!completed)
+
+        while(!completed && retryCount < 5)
         {
             try
             {
+                retryCount ++;
                 std::ofstream file(path); //open in constructor
                 file << msg.fileContent;
                 completed = true;
@@ -731,6 +744,14 @@ int Server::ClientConn::handleFileUpdate(msg::message msg){
                 sleep(5);
 
             }
+        }
+
+        if(!completed || retryCount >= 5){
+
+            log -> error("file: " + path + " couldn't be updated because of internal errors ");
+            log -> flush();
+            return -11;
+
         }
 
     } catch (...) {
@@ -795,21 +816,31 @@ int Server::ClientConn::handleFileRename(msg::message msg){
         }
 
         bool completed = false;
-        while(!completed)
+        int retryCount = 0;
+        while(!completed && retryCount < 5)
         {
 
             try
             {
+                retryCount ++;
                 fs::rename(oldPath, newPath);
                 completed = true;
             }
             catch(...) 
             {
-
                 log -> error("file: " + oldPathString + " currently used by others; sleep for 5 seconds and retry later ");
                 log -> flush();
                 sleep(5);
             }
+
+        }
+
+        if(!completed || retryCount >= 5){
+
+            log -> error("file: " + oldPathString + " couldn't be updated because of internal errors ");
+            log -> flush();
+
+            return -11;
 
         }    
 
@@ -877,11 +908,14 @@ int Server::ClientConn::handleFileDelete(msg::message msg){
             return -2; // file doesn't exist
         }
 
+        int retryCount = 0;
         bool completed = false;
-        while(!completed)
+
+        while(!completed && retryCount < 5)
         {
             try
             {
+                retryCount ++;
                 fs::remove_all(path);
                 completed = true;
             }
@@ -891,6 +925,14 @@ int Server::ClientConn::handleFileDelete(msg::message msg){
                 log -> flush();
                 sleep(5);
             }
+        }
+
+        if(!completed || retryCount >= 5) {
+
+            log -> error("file: " + path + " not updated because of internal error ");
+            log -> flush();
+            return -11;
+
         }
 
     } catch(...){

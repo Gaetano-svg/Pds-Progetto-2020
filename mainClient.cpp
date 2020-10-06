@@ -31,8 +31,12 @@ int main(int argc, char** args)
         "gaetano"
     };
     
-    client.sendMessage(fcu);
-    client.readMessageResponse(response);
+    if(!client.isClosed()){
+
+        client.sendMessage(fcu);
+        client.readMessageResponse(response);
+
+    }
 
     sleep(2);
 
@@ -48,8 +52,12 @@ int main(int argc, char** args)
 
     };
 
-    client.sendMessage(fcu2);
-    client.readMessageResponse(response);
+    if(!client.isClosed()){
+
+        client.sendMessage(fcu2);
+        client.readMessageResponse(response);
+
+    }
 
     fcu2 = {
         "create",
@@ -61,9 +69,13 @@ int main(int argc, char** args)
 
     };
 
-    client.sendMessage(fcu2);
-    client.readMessageResponse(response);
+    if(!client.isClosed()){
 
+        client.sendMessage(fcu2);
+        client.readMessageResponse(response);
+
+    }
+    
     sleep(20);
 
     fcu2 = {
@@ -77,8 +89,12 @@ int main(int argc, char** args)
 
     };
 
-    client.sendMessage(fcu2);
-    client.readMessageResponse(response);
+    if (!client.isClosed()){
+
+        client.sendMessage(fcu2);
+        client.readMessageResponse(response);
+
+    }
 
     sleep(20);
 
@@ -93,8 +109,12 @@ int main(int argc, char** args)
 
     };
 
-    client.sendMessage(fcu2);
-    client.readMessageResponse(response);
+    if(!client.isClosed()){
+
+        client.sendMessage(fcu2);
+        client.readMessageResponse(response);
+        
+    }
 
     cout << "send update message 3" << endl;
 
@@ -108,8 +128,12 @@ int main(int argc, char** args)
 
     };
 
-    client.sendMessage(fcu3);
-    client.readMessageResponse(response);
+    if(!client.isClosed()){
+
+        client.sendMessage(fcu3);
+        client.readMessageResponse(response);
+        
+    }
 
     client.serverDisconnection();
 
