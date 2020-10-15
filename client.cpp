@@ -139,6 +139,8 @@ int Client::serverConnection () {
         return -1;
     }
 
+    socketObj.SetBlocking();
+
     socketObj.SetSendTimeout(uc.secondTimeout);
     socketObj.SetReceiveTimeout(uc.secondTimeout);
     socketObj.SetConnectTimeout(uc.secondTimeout);
@@ -156,7 +158,7 @@ int Client::serverConnection () {
 
     }
 
-    while(readMessageResponse(response) < 0){
+    while(readMessageResponse2(response) < 0){
 
         if(isClosed()){
 
@@ -201,7 +203,7 @@ int Client::serverDisconnection () {
     myLogger -> flush();
 
     string response;
-    msg::message fcu2 {
+    msg::message2 fcu2 /*{
         "disconnect",
         6,
         "test",
@@ -209,9 +211,9 @@ int Client::serverDisconnection () {
         "test disconnect",
         "gaetano"
 
-    };
+    }*/;
 
-    resCode = sendMessage(fcu2);
+    resCode = sendMessage2(fcu2);
     
     if(resCode < 0) {
 
@@ -220,7 +222,7 @@ int Client::serverDisconnection () {
 
     }
 
-    resCode = readMessageResponse(response);
+    resCode = readMessageResponse2(response);
 
     if(resCode < 0) {
 
@@ -303,6 +305,7 @@ int Client::sendFileStream(string filePath){
 
     json jMsg;
     int sendCode = 0;
+    off_t offset = 0;
     
     try{
 
@@ -329,22 +332,129 @@ int Client::sendFileStream(string filePath){
         fseek(file, 0L, SEEK_END);
         int fileSize = ftell(file);    
 
-        myLogger -> info("sending file stream: " + filePath);
+        myLogger -> info("sending file stream: " + filePath + " size: " + to_string(fileSize));
         myLogger -> flush(); 
 
-        int sendFileReturnCode = this -> socketObj.SendFile(this -> socketObj.GetSocketDescriptor(), fd, 0, fileSize);
+        int sendFileReturnCode = this -> socketObj.SendFile(this -> socketObj.GetSocketDescriptor(), fd, &offset, fileSize);
 
-        if(sendFileReturnCode <= 0){
+        if(sendFileReturnCode < 0){
 
             myLogger -> error ("an error sending stream File to server");
             return -3;
 
+        } else {
+
+            myLogger -> info("file stream correctly sent for path " + filePath);
+            myLogger -> flush();
         }
 
     } catch(...){
 
         myLogger -> error ("a generic error occured sending file: " + filePath);
         return -4;
+
+    }
+
+    return 0;
+
+}
+
+int Client::send(int operation, string folderPath, string fileName, string content){
+
+    int resCode = 0;
+    string response;
+ 
+
+    msg::message2 msg;
+    
+    // UPDATE OR CREATE OPERATION
+    if(operation == 1 || operation == 3){
+
+
+        string filePath = folderPath + separator() + fileName;
+
+        cout << filePath << endl;
+        FILE* file = fopen(filePath.c_str(), "r");
+
+        if(file == NULL){
+
+            myLogger -> error("the file " + filePath + " wasn't found! ");
+            return -5;
+
+        }
+
+        // obtain file size
+        fseek(file, 0L, SEEK_END);
+        int fileSize = ftell(file); 
+
+        int div = fileSize / SOCKET_SENDFILE_BLOCKSIZE;
+        int rest = fileSize % SOCKET_SENDFILE_BLOCKSIZE;
+        int numberOfPackets = div;
+        if(rest > 0)
+            numberOfPackets ++;
+
+        msg = {
+
+            "",
+            operation,
+            0, // timestamp
+            "",// hash
+            numberOfPackets,
+            folderPath,
+            fileName,
+            this -> uc.name,
+            content
+
+        };
+
+        resCode = sendMessage2(msg);
+        cout << 1 << endl;
+        if(resCode < 0)
+            return -1;
+
+        resCode = readMessageResponse2(response);
+
+        cout << 2 << endl;
+        if(resCode < 0)
+            return -2;
+        
+        resCode = sendFileStream(filePath);
+
+        cout << 3 << endl;
+        if(resCode < 0)
+            return -3;
+
+        resCode = readMessageResponse2(response);
+
+        cout << 4 << endl;
+        if(resCode < 0)
+            return -4;
+
+    } else {
+
+        msg = {
+
+            "",
+            operation,
+            0, // timestamp
+            "",// hash
+            0,
+            folderPath,
+            fileName,
+            this -> uc.name,
+            content
+
+        };
+
+        resCode = sendMessage2(msg);
+
+        if(resCode < 0)
+            return -1;
+
+        resCode = readMessageResponse2(response);
+
+        if(resCode < 0)
+            return -2;
 
     }
 
@@ -371,7 +481,7 @@ int Client::sendMessage2(msg::message2 msg){
     
     try {
 
-        jMsg = json{{"userName", msg.userName},{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"fileContent", msg.fileContent}};
+        jMsg = json{{"packetNumber", msg.packetNumber},{"userName", msg.userName},{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"body", msg.body}};
     
     } catch (...) {
 
@@ -385,6 +495,7 @@ int Client::sendMessage2(msg::message2 msg){
     try{
 
         string jMsgString = jMsg.dump();
+
 
         myLogger -> info("Sending DATA msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
         myLogger -> flush(); 
@@ -540,20 +651,10 @@ int Client::readMessageResponse2(string & response){
             return -2;
 
         }
-
-        // Receive the string data
-        if(this -> socketObj.Receive(PACKET_SIZE) <= 0){
-
-            socketObj.TranslateSocketError();
-            string sockError = socketObj.DescribeError();
-
-            myLogger -> error("an error occured receiving HEADER RESPONSE: " + sockError);
-            return -3;
-
-        }
         
         string respString = (char *) socketObj.GetData();
-        
+
+        response.clear();
         response = respString;
 
         //response.assign(rcvBuf.begin(), rcvBuf.end());

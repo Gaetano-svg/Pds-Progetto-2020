@@ -30,10 +30,21 @@ class Client {
     int readMessageResponse2 (string & response);
     int sendFileStream(string filePath);
 
+    inline string separator()
+    {
+        #ifdef _WIN32
+            return "\\";
+        #else
+            return "/";
+        #endif
+    }
+
 public:
 
     CActiveSocket socketObj;
     conf::user uc;
+
+    int send(int operation, string folderPath, string fileName, string content);
     
 	int sock;
     int readConfiguration ();

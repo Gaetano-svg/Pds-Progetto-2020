@@ -910,7 +910,7 @@ bool CSimpleSocket::SetBlocking(void)
 //------------------------------------------------------------------------------
 int32 CSimpleSocket::SendFile(int32 nOutFd, int32 nInFd, off_t *pOffset, int32 nCount)
 {
-    int32  nOutCount = CSimpleSocket::SocketError;
+    int32  nOutCount = 0;//CSimpleSocket::SocketError;
 
     static char szData[SOCKET_SENDFILE_BLOCKSIZE];
     int32       nInCount = 0;
@@ -940,6 +940,8 @@ int32 CSimpleSocket::SendFile(int32 nOutFd, int32 nInFd, off_t *pOffset, int32 n
     *pOffset += nOutCount;
 
     TranslateSocketError();
+
+    std::cout << (nOutCount) << std::endl;
 
     return nOutCount;
 }

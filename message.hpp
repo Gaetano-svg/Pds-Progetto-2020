@@ -1,5 +1,7 @@
 #include <string>
 
+using namespace std;
+
 namespace msg {
 
     // Messaggio generico
@@ -31,8 +33,8 @@ namespace msg {
         string  hash;
 
         int     packetNumber;
-        //string  folderPath;
-        string  path; // will be the folder Path(for intial conf) or the file Path(for the other messages)
+        string  folderPath;
+        string  fileName; // will be the folder Path(for intial conf) or the file Path(for the other messages)
         string userName;
 
         string  body;

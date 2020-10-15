@@ -61,11 +61,11 @@ RETURN:
 
 */
 
-int Server::ClientConn::fromMessageToString(string & messageString, msg::message & msg){
+int Server::ClientConn::fromMessageToString(string & messageString, msg::message2 & msg){
 
     try 
     {
-        json jMsg = json{{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"fileContent", msg.fileContent}};
+        json jMsg = json{{"packetNumber", msg.packetNumber},{"userName", msg.userName},{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"body", msg.body}};
         messageString = jMsg.dump();
     } 
     catch (...) 
@@ -87,7 +87,7 @@ RETURN:
 
 */
 
-int Server::ClientConn::fromStringToMessage(string msg, msg::message& message){
+int Server::ClientConn::fromStringToMessage(string msg, msg::message2& message){
 
     try {
 
@@ -98,11 +98,11 @@ int Server::ClientConn::fromStringToMessage(string msg, msg::message& message){
         jsonMSG.at("folderPath").get_to(message.folderPath);
         jsonMSG.at("userName").get_to(message.userName);
         jsonMSG.at("fileName").get_to(message.fileName);
-        jsonMSG.at("fileContent").get_to(message.fileContent);
+        jsonMSG.at("body").get_to(message.body);
 
     } catch (...) {
 
-        log -> error ("An error appened parsing the message received: " + msg);
+        log -> error ("An error appened parsing the HEADER received: " + msg);
         log -> flush();
         return -10;
 
@@ -140,7 +140,7 @@ RETURN:
 
 */
 
-int Server::ClientConn::selective_search(string & response, msg::message & msg)
+int Server::ClientConn::selective_search(string & response, msg::message2 & msg)
 {
     string serverBackupFolder, msgFolderPath, path;
 
@@ -219,15 +219,15 @@ int Server::ClientConn::selective_search(string & response, msg::message & msg)
 
 void Server::ClientConn::sendResponse(int resCode, msg::message msg) {
         
-    msg::message response;
+    msg::message2 response;
     string responseString;
     int sendCode = 0;
-
+/*
     if(resCode == 0)
         handleOkResponse(response, msg);
                         
     else 
-        handleErrorResponse(response, msg, resCode);
+        handleErrorResponse(response, msg, resCode);*/
 
     resCode = fromMessageToString(responseString, response);
 
@@ -291,17 +291,17 @@ void Server::ClientConn::sendResponse(int resCode, msg::message msg) {
 }
 
 
-void Server::ClientConn::sendResponse2(int resCode, msg::message2 msg) {
+int Server::ClientConn::sendResponse2(int resCode, msg::message2 msg) {
         
-    msg::message response;
+    msg::message2 response;
     string responseString;
     int sendCode = 0;
-/*
+
     if(resCode == 0)
         handleOkResponse(response, msg);
                         
     else 
-        handleErrorResponse(response, msg, resCode);*/
+        handleErrorResponse(response, msg, resCode);
 
     resCode = fromMessageToString(responseString, response);
 
@@ -318,7 +318,7 @@ void Server::ClientConn::sendResponse2(int resCode, msg::message2 msg) {
             string sockError = sockObject -> DescribeError();
             log -> error("an error occured sending response DATA: " + sockError);
 
-            return;
+            return -1;
 
         } else if (sendCode == 0) {
 
@@ -327,35 +327,59 @@ void Server::ClientConn::sendResponse2(int resCode, msg::message2 msg) {
             log -> error("connection shutted down before sending response DATA: " + sockError);
             this -> running.store(false);
 
+            return -2;
+
         }
                 
         log -> info ("response sent: " + responseString );
         log -> flush();
 
-    } else 
+    } else {
 
         log -> error ("error parsing MESSAGE response to string");
+        return -3;
+
+    }
+
+    return 0;
 
 }
 
-void Server::ClientConn::readFileStream(){
+int Server::ClientConn::readFileStream(int packetsNumber, int fileFd){
 
     // per ogni stream ricevuto dal client scrivo su un file temporaneo
     // se lo stream è andato a buon fine e ho ricevuto tutto faccio una copia dal file temporaneo a quello ufficiale
     // ed eliminio il file temporaneo
-/*
+
+    int i = 0;
+    int sockFd = this -> sockObject -> GetSocketDescriptor();
+    char buffer [BUFSIZ];
+
     do {
-        read_return = read(client_sockfd, buffer, BUFSIZ);
+
+        i++;
+
+        // reset char array
+        memset(buffer, 0, BUFSIZ);
+
+        int read_return = read(sockFd, buffer, BUFSIZ);
         if (read_return == -1) {
-            perror("read");
-            exit(EXIT_FAILURE);
-        }
-        if (write(filefd, buffer, read_return) == -1) {
-            perror("write");
-            exit(EXIT_FAILURE);
+            
+            log -> error("An error occured reading packet # " + to_string(i) + " from socket " + to_string(sockFd));
+            return -1;
+
         }
 
-    } while (read_return > 0);*/
+        if (write(fileFd, buffer, read_return) == -1) {
+            
+            log -> error("An error occured writing packet # " + to_string(i) + " to file descriptor: " + to_string(fileFd));
+            return -2;
+
+        }       
+
+    } while(i < packetsNumber);
+
+    return 0;
 
 }
 
@@ -442,7 +466,6 @@ int Server::ClientConn::readMessage(int fd, string & bufString) {
 /// Reads message from fd
 int Server::ClientConn::readMessage2(int fd, string & bufString) {
 
-
     uint64_t rcvDataLength;
     std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
     int rcvCode = 0;
@@ -494,12 +517,146 @@ int Server::ClientConn::readMessage2(int fd, string & bufString) {
 }
 
 
+
+
+void Server::ClientConn::waitForMessage2(){
+
+    msg::message2 msg;
+    int resCode;
+    uint64_t sizeNumber;
+
+    // declaration of response message
+    msg::message response;
+
+    while(running.load()){   
+
+        try {
+
+            log -> info ("wait for message from the client");
+            log -> flush();
+
+            string buf;
+            
+            milliseconds ms = duration_cast< milliseconds >(
+                system_clock::now().time_since_epoch()
+            );
+
+            this -> activeMS.store(ms.count());
+
+            if (readMessage2(sock, buf) == 0){
+           
+                string sBuf = buf;
+                string responseString;
+
+                ms = duration_cast< milliseconds >(
+                    system_clock::now().time_since_epoch()
+                );
+
+                this -> activeMS.store(ms.count());
+
+                resCode = fromStringToMessage(buf, msg);
+
+                if(resCode == 0){
+                            
+                    log -> info ("message parsed" );
+                    log -> flush();
+
+                    switch(msg.typeCode){
+                                
+                        // file update
+                        case 1:
+                        case 3:
+
+                            resCode = sendResponse2(resCode, msg); 
+
+                            if(resCode == 0){
+
+                                resCode = handleFileUpdate2(msg);
+                                resCode = sendResponse2(resCode, msg); 
+
+                            }
+
+                        break;
+
+                        // file rename
+                        case 2:
+
+                            resCode = handleFileRename(msg);
+                            resCode = sendResponse2(resCode, msg); 
+
+                        break;
+/*
+                        // file creation
+                        case 3:
+
+                            resCode = sendResponse2(resCode, msg); 
+
+                            if(resCode == 0){
+
+                                resCode = handleFileUpdate2(msg);
+                                resCode = sendResponse2(resCode, msg); 
+                                
+                            }
+
+                        break;*/
+
+                        // file delete
+                        case 4:
+
+                            resCode = handleFileDelete(msg);
+                            resCode = sendResponse2(resCode, msg); 
+
+                        break;
+
+                        // initial configuration
+                        case 5:
+
+                            resCode = 0;
+                            sendResponse2(resCode, msg); 
+
+                        break;
+
+                        // close connection
+                        case 6:
+
+                            resCode = 0;
+                            running.store(false);
+
+                        break;
+                        
+                    }
+
+                }
+
+
+            } else { 
+
+                log -> info("going to sleep for 1 second because of error");
+                sleep(1);
+
+            }
+
+        } catch (...) {
+
+            log -> error("unexpected error happened");
+            log -> info("going to sleep for 1 second because of error");
+            sleep(1);
+            return;
+
+        }
+
+    }
+
+
+}
+
+
 /*
 
 RETURN:
 
 */
-
+/*
 void Server::ClientConn::waitForMessage(){
 
     //while(running){
@@ -614,14 +771,14 @@ void Server::ClientConn::waitForMessage(){
     }
         
 }
-
+*/
 /*
 
 RETURN:
 
 */
 
-int Server::ClientConn::handleOkResponse(msg::message & response, msg::message & msg){
+int Server::ClientConn::handleOkResponse(msg::message2 & response, msg::message2 & msg){
 
     try{
 
@@ -642,10 +799,10 @@ int Server::ClientConn::handleOkResponse(msg::message & response, msg::message &
 
             }
 
-            response.fileContent = stringConf;
+            response.body = stringConf;
         }
         else
-            response.fileContent = "";
+            response.body = "";
 
     } catch (...) {
 
@@ -664,7 +821,7 @@ RETURN:
 
 */
 
-int Server::ClientConn::handleErrorResponse(msg::message & response, msg::message & msg, int errorCode){
+int Server::ClientConn::handleErrorResponse(msg::message2 & response, msg::message2 & msg, int errorCode){
 
     try 
     {
@@ -678,27 +835,27 @@ int Server::ClientConn::handleErrorResponse(msg::message & response, msg::messag
 
             case -1:
                 response.type = "missingFolderError";
-                response.fileContent = "Folder doesn't exist!";
+                response.body = "Folder doesn't exist!";
             break;
 
             case -2:
                 response.type = "missingFileError";
-                response.fileContent = "File doesn't exist!";
+                response.body = "File doesn't exist!";
             break;
 
             case -10:
                 response.type = "messageParsingStringError";
-                response.fileContent = "An error happened during the parsing of the message received from the client";
+                response.body = "An error happened during the parsing of the message received from the client";
             break;
 
             case -11:
                 response.type = "updateBackupFileError";
-                response.fileContent = "An error happened during the update of server backup folder";
+                response.body = "An error happened during the update of server backup folder";
             break;
 
             case -20:
                 response.type = "genericError";
-                response.fileContent = "A generic error";
+                response.body = "A generic error";
             break;
 
         }
@@ -817,6 +974,109 @@ RETURN:
 
 */
 
+int Server::ClientConn::handleFileUpdate2(msg::message2 msg){
+
+    string serverBackupFolder, msgFolderPath, path;
+    fs::path dstFolder, filePath;
+
+    serverBackupFolder = server.backupFolder;
+    msgFolderPath = msg.folderPath;
+
+    //fs::path dstFolder = path, filePath;
+    
+    try {
+        
+
+        serverBackupFolder = server.backupFolder;
+        msgFolderPath = msg.folderPath;
+
+
+        #       ifdef BOOST_POSIX_API   //workaround for user-input files
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '\\', '/');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '\\', '/');         
+        #       else
+                    std::replace(serverBackupFolder.begin(), serverBackupFolder.end(), '/', '\\');   
+                    std::replace(msgFolderPath.begin(), msgFolderPath.end(), '/', '\\');         
+        #       endif
+
+        path = serverBackupFolder + separator() + msg.userName + separator() + msgFolderPath;
+
+        dstFolder = path;
+
+        if( ! fs::exists(dstFolder))
+            fs::create_directories(dstFolder);
+
+        path +=  separator() + msg.fileName;
+
+        filePath = path;
+        
+        // if the file already exist doesn't need to be created
+        if(!fs::exists(filePath)){
+                
+            log -> info("the file " + path + " doesn't exists: the output will be redirected on it");
+            log -> flush();
+
+        }
+        
+        int retryCount = 0;
+        bool completed = false;
+
+        int i = 0;
+        int sockFd = this -> sockObject -> GetSocketDescriptor();
+        char buffer [BUFSIZ];
+
+        FILE* file = fopen(filePath.c_str(), "w");
+
+        // take file descriptor from FILE pointer 
+        int fileFd = fileno(file); 
+
+        do {
+
+            i++;
+
+            // reset char array
+            memset(buffer, 0, BUFSIZ);
+
+            int read_return = read(sockFd, buffer, BUFSIZ);
+            if (read_return == -1) {
+                
+                log -> error("An error occured reading packet # " + to_string(i) + " from socket " + to_string(sockFd));
+                return -1;
+
+            }
+
+            if (write(fileFd, buffer, read_return) == -1) {
+                
+                log -> error("An error occured writing packet # " + to_string(i) + " to file descriptor: " + to_string(fileFd));
+                return -2;
+
+            }       
+
+        } while(i < msg.packetNumber);
+
+        log -> info("file " + path + " correctly updated");
+        log -> flush();
+
+    } catch (...) {
+
+        log -> error("an error occured handling file update: " + path);
+        return -20;
+
+    }         
+
+    log -> info("update of file: " + path);
+    log -> flush();
+
+    return 0;
+
+}
+
+/*
+
+RETURN:
+
+*/
+
 int Server::ClientConn::handleFileUpdate(msg::message msg){
 
     string serverBackupFolder, msgFolderPath, path;
@@ -912,7 +1172,7 @@ RETURN:
 
 */
 
-int Server::ClientConn::handleFileRename(msg::message msg){
+int Server::ClientConn::handleFileRename(msg::message2 msg){
 
     string serverBackupFolder, msgFolderPath, path, oldPathString, newPathString;
     fs::path dstFolder;
@@ -939,7 +1199,7 @@ int Server::ClientConn::handleFileRename(msg::message msg){
             return -1;
 
         oldPathString = path + separator() + msg.fileName;
-        newPathString = path + separator() + msg.fileContent;
+        newPathString = path + separator() + msg.body;
 
         fs::path oldPath = oldPathString;
         fs::path newPath = newPathString;
@@ -1002,7 +1262,7 @@ RETURN:
 
 */
 
-int Server::ClientConn::handleFileDelete(msg::message msg){
+int Server::ClientConn::handleFileDelete(msg::message2 msg){
     string serverBackupFolder, msgFolderPath, path;
     fs::path dstFolder, filePath;
 
@@ -1101,7 +1361,7 @@ void Server::ClientConn::handleConnection(){
         // check if socket is closed
         if( !serv.isClosed(sock) ){
 
-            msg::message msg;
+            msg::message2 msg;
 
             try{
 
@@ -1109,11 +1369,11 @@ void Server::ClientConn::handleConnection(){
                 if(initLogger() == 0){
 
                     // send response to CONNECTION MESSAGE by the client
-                    msg.fileContent = "socket accepted";
-                    sendResponse(0, msg);
+                    msg.body = "socket accepted";
+                    sendResponse2(0, msg);
 
                     // while loop to wait for different messages from client
-                    waitForMessage();
+                    waitForMessage2();
 
                     serv.unregisterClient(sock);
                     sockObject -> Close();

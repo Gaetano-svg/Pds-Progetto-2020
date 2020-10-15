@@ -21,7 +21,7 @@ int main(int argc, char** args)
     cout <<"try inactivity" << endl;
 
     client.serverConnection();
-
+/*
     msg::message fcu {
         "initconf",
         5,
@@ -36,23 +36,30 @@ int main(int argc, char** args)
         client.sendMessage(fcu);
         client.readMessageResponse(response);
 
-    //}
-
-    sleep(20);    
+    //}*/
+  
 
     cout << "send create message 2" << endl;
 
-    msg::message fcu2 {
+    /*msg::message2 fcu2 {
         "create",
         3,
+        0, // timestamp
+        "",// hash
         "C:\\Users\\TanoPC\\Desktop",
         "test4",
         "test create",
         client.uc.name
 
-    };
+    };*/
 
-    //if(!client.isClosed()){
+    client.send(3, "/home/gaetano/Desktop/testRead", "test5.txt", "");
+
+    client.send(1, "/home/gaetano/Desktop/testRead", "test5.txt", "");
+
+    //client.serverDisconnection();
+
+    /*//if(!client.isClosed()){
 
         client.sendMessage(fcu2);
         client.readMessageResponse(response);
@@ -137,7 +144,7 @@ int main(int argc, char** args)
 
     client.serverDisconnection();
 
-    cout << "exit" << endl;
+    cout << "exit" << endl;*/
 
     // 5. Threads initialization
 
