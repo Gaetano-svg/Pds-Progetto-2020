@@ -132,6 +132,7 @@ int Server::startListening(){
     // Initialize our socket object 
     //--------------------------------------------------------------------------
     socket.Initialize();
+    socket.SetBlocking();
 
     socket.Listen(serverIp, serverPort);
 
@@ -299,7 +300,6 @@ void Server::unregisterClient(int csock){
 
         clients.erase(csock);
         shutdown(csock, 2);
-        log -> info("");
         log -> info("Exited from waiting messages from socket: " + to_string(csock) + " \n");
         log -> flush();
         

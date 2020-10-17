@@ -199,19 +199,24 @@ RETURN:
 int Client::serverDisconnection () {
 
     int resCode = 0;
+    myLogger -> info("");
     myLogger -> info ("try to disconnect from server - IP: " + uc.serverIp + " PORT: " + uc.serverPort);
     myLogger -> flush();
 
     string response;
-    msg::message2 fcu2 /*{
-        "disconnect",
-        6,
-        "test",
-        "test",
-        "test disconnect",
-        "gaetano"
+    msg::message2 fcu2 = {
 
-    }*/;
+            "",
+            6,
+            0, // timestamp
+            "",// hash
+            0,
+            "",
+            "",
+            this -> uc.name,
+            ""
+
+        };
 
     resCode = sendMessage2(fcu2);
     
@@ -232,7 +237,7 @@ int Client::serverDisconnection () {
     }
 
 	// Disconnect from server
-    socketObj.Close();
+    //socketObj.Close();
 
     myLogger -> info ("disconnected from server " + uc.serverIp + ":" + uc.serverPort);
     myLogger -> flush();
@@ -241,55 +246,6 @@ int Client::serverDisconnection () {
 
 }
 
-/*
-
-RETURN:
-
- 0 ---> no error
--1 ---> error parsing message json
--2 ---> error sending message LENGTH
--3 ---> error sending message DATA
--4 ---> socket CLOSED
-
-*/
-
-int Client::sendMessage(msg::message msg){
-
-    json jMsg;
-    int sendCode = 0;
-    
-    try {
-
-        jMsg = json{{"userName", msg.userName},{"type", msg.type}, {"typeCode", msg.typeCode}, {"fileName", msg.fileName}, {"folderPath", msg.folderPath}, {"fileContent", msg.fileContent}};
-    
-    } catch (...) {
-
-        myLogger -> error ("an error parsing message json");
-        return -1;
-
-    }
-
-    string jMsgString = jMsg.dump();
-    uint64_t sizeNumber = jMsgString.length();
-    string size = to_string(sizeNumber);
-
-    myLogger -> info("Sending SIZE msg for file to server: " + size + " bytes");
-    myLogger -> flush(); 
-
-    if(this -> socketObj.Send((const uint8 *) size.c_str(), sizeof(uint64_t)) <= 0){
-        return -2;
-    }
-
-    myLogger -> info("Sending DATA msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
-    myLogger -> flush(); 
-
-    if(this -> socketObj.Send((const uint8 *) jMsgString.c_str(), sizeNumber) <= 0){
-        return -3;
-    }
-
-    return 0;
-
-}
 /*
 
 RETURN:
@@ -313,7 +269,6 @@ int Client::sendFileStream(string filePath){
 
         if(file == NULL){
 
-            myLogger -> error ("the file: " + filePath + " couldn't be opened!");
             return -1;
 
         }
@@ -323,34 +278,24 @@ int Client::sendFileStream(string filePath){
 
         if(isClosed()){
 
-            myLogger -> error ("the socket has been closed!");
             return -2;
 
         }
 
         // obtain file size
         fseek(file, 0L, SEEK_END);
-        int fileSize = ftell(file);    
-
-        myLogger -> info("sending file stream: " + filePath + " size: " + to_string(fileSize));
-        myLogger -> flush(); 
+        int fileSize = ftell(file);
 
         int sendFileReturnCode = this -> socketObj.SendFile(this -> socketObj.GetSocketDescriptor(), fd, &offset, fileSize);
 
         if(sendFileReturnCode < 0){
 
-            myLogger -> error ("an error sending stream File to server");
             return -3;
 
-        } else {
-
-            myLogger -> info("file stream correctly sent for path " + filePath);
-            myLogger -> flush();
-        }
+        } 
 
     } catch(...){
 
-        myLogger -> error ("a generic error occured sending file: " + filePath);
         return -4;
 
     }
@@ -373,7 +318,6 @@ int Client::send(int operation, string folderPath, string fileName, string conte
 
         string filePath = folderPath + separator() + fileName;
 
-        cout << filePath << endl;
         FILE* file = fopen(filePath.c_str(), "r");
 
         if(file == NULL){
@@ -382,6 +326,10 @@ int Client::send(int operation, string folderPath, string fileName, string conte
             return -5;
 
         }
+        myLogger -> info("");
+        myLogger -> info("[OPERATION_" + to_string(operation) + "]: path " + filePath);
+        myLogger -> info("");
+        myLogger -> flush();
 
         // obtain file size
         fseek(file, 0L, SEEK_END);
@@ -408,29 +356,43 @@ int Client::send(int operation, string folderPath, string fileName, string conte
         };
 
         resCode = sendMessage2(msg);
-        cout << 1 << endl;
+        
+        myLogger -> info("[OPERATION_" + to_string(operation) + "]: SND MSG returned code: " + to_string(resCode));
+        myLogger -> flush();
+
         if(resCode < 0)
             return -1;
 
         resCode = readMessageResponse2(response);
 
-        cout << 2 << endl;
+        myLogger -> info("[OPERATION_" + to_string(operation) + "]: RCV RESP returned code: " + to_string(resCode));
+        myLogger -> flush();
+        
         if(resCode < 0)
             return -2;
         
         resCode = sendFileStream(filePath);
 
-        cout << 3 << endl;
+        myLogger -> info("[OPERATION_" + to_string(operation) + "]: SND FILE STREAM returned code: " + to_string(resCode));
+        myLogger -> flush();
+
         if(resCode < 0)
             return -3;
 
         resCode = readMessageResponse2(response);
 
-        cout << 4 << endl;
+        myLogger -> info("[OPERATION_" + to_string(operation) + "]: RCV STREAM RESP returned code: " + to_string(resCode));
+        myLogger -> flush();
+        
         if(resCode < 0)
             return -4;
 
     } else {
+
+        myLogger -> info("");
+        myLogger -> info("[OPERATION_" + to_string(operation) + "]: path " + folderPath);
+        myLogger -> info("");
+        myLogger -> flush();
 
         msg = {
 
@@ -448,15 +410,108 @@ int Client::send(int operation, string folderPath, string fileName, string conte
 
         resCode = sendMessage2(msg);
 
+        myLogger -> info("[OPERATION_" + to_string(operation) + "]: SEND MSG returned code: " + to_string(resCode));
+        myLogger -> flush();
+
         if(resCode < 0)
             return -1;
 
         resCode = readMessageResponse2(response);
 
+        myLogger -> info("[OPERATION_" + to_string(operation) + "]: RCV RESP returned code: " + to_string(resCode));
+        myLogger -> flush();
+
         if(resCode < 0)
             return -2;
 
+        // INITIAL CONFIGURATION
+        if (operation == 5){
+            
+            string initialConf;
+
+            // SEND OK RESPONSE
+            msg.typeCode = 0;
+            msg.type = "ok";
+
+            int numberPackets = msg.packetNumber;
+
+            resCode = sendMessage2(msg);
+
+            myLogger -> info("[OPERATION_" + to_string(operation) + "]: SEND CONF RESP returned code: " + to_string(resCode));
+            myLogger -> flush();
+
+            if(resCode < 0)
+                return -3;
+
+            resCode = readInitialConfStream(numberPackets, initialConf);
+
+            myLogger -> info("[OPERATION_" + to_string(operation) + "]: RCV CONF STREAM returned code: " + to_string(resCode));
+            myLogger -> flush();
+            
+            if(resCode < 0)
+                return -4;
+
+            resCode = sendMessage2(msg);
+
+            myLogger -> info("[OPERATION_" + to_string(operation) + "]: SEND CONF STREAM RESP returned code: " + to_string(resCode));
+            myLogger -> flush();
+
+            if(resCode < 0)
+                return -5;
+
+            resCode = readMessageResponse2(response);
+
+            myLogger -> info("[OPERATION_" + to_string(operation) + "]: RCV END STREAM returned code: " + to_string(resCode));
+            myLogger -> flush();
+
+            if(resCode < 0)
+                return -6;
+
+        }
+
     }
+
+    return 0;
+
+}
+
+
+int Client::readInitialConfStream(int packetsNumber, string conf){
+
+    // per ogni stream ricevuto dal client scrivo su un file temporaneo
+    // se lo stream è andato a buon fine e ho ricevuto tutto faccio una copia dal file temporaneo a quello ufficiale
+    // ed eliminio il file temporaneo
+
+    int i = 0;
+    int sockFd = this -> socketObj.GetSocketDescriptor();
+    char buffer [BUFSIZ];
+
+    do {
+
+        i++;
+
+        // reset char array
+        memset(buffer, 0, BUFSIZ);
+
+        int read_return = read(sockFd, buffer, BUFSIZ);
+
+        if (read_return == -1) {
+            
+            return -1;
+
+        }
+
+        try {
+
+            string tempBuf = buffer;
+            conf += tempBuf;
+
+        } catch (...) {
+
+            return -2;
+        }   
+
+    } while(i < packetsNumber);
 
     return 0;
 
@@ -485,7 +540,6 @@ int Client::sendMessage2(msg::message2 msg){
     
     } catch (...) {
 
-        myLogger -> error ("an error parsing message json");
         return -1;
 
     }
@@ -496,17 +550,12 @@ int Client::sendMessage2(msg::message2 msg){
 
         string jMsgString = jMsg.dump();
 
-
-        myLogger -> info("Sending DATA msg for file to server: " + jMsgString + " length: " + to_string(jMsgString.length()) + " bytes");
-        myLogger -> flush(); 
-
         int sendCode = this -> socketObj.Send((const uint8 *) jMsgString.c_str(), jMsgString.length());
 
         if(sendCode < 0){
 
             socketObj.TranslateSocketError();
             string sockError = socketObj.DescribeError();
-            myLogger -> error("an error occured sending MESSAGE HEADER: " + sockError);
 
             return -2;
 
@@ -514,7 +563,6 @@ int Client::sendMessage2(msg::message2 msg){
 
             socketObj.TranslateSocketError();
             string sockError = socketObj.DescribeError();
-            myLogger -> error("connection shutted down before sending MESSAGE HEADER: " + sockError);
 
             return -3;
 
@@ -522,85 +570,7 @@ int Client::sendMessage2(msg::message2 msg){
 
     } catch(...){
 
-        myLogger -> error ("an error sending message HEADER");
         return -4;
-
-    }
-
-    return 0;
-
-}
-
-/*
-
-RETURN:
-
- 0 ---> no error
--1 ---> error receiving message LENGTH
--2 ---> error receiving message DATA
--3 ---> unexpected error
--4 ---> socket CLOSED
--5 ---> TIMEOUT
-
-*/
-
-int Client::readMessageResponse(string & response){
-
-    uint64_t rcvDataLength;
-    std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
-    int rcvCode = 0;
-    fd_set set;
-    struct timeval timeout;
-    int iResult = 0;
-
-    try {
-
-        myLogger -> info("wait For response");
-        myLogger -> flush();
-
-        // Receive the message length
-
-        if(this -> socketObj.Receive(sizeof(uint64_t)) <= 0){
-
-            socketObj.TranslateSocketError();
-            string sockError = socketObj.DescribeError();
-
-            myLogger -> error("an error occured receiving response LENGTH: " + sockError);
-            return -1;
-
-        }
-        
-        string length = (char *) socketObj.GetData();
-        rcvDataLength = atoi(length.c_str());
-
-        //memcpy(&rcvDataLength, socketObj.GetData(), sizeof(uint64_t));
-
-        myLogger -> info ("response size received: " + to_string(rcvDataLength));
-        myLogger -> flush();
-
-        // Receive the string data
-        if(this -> socketObj.Receive(rcvDataLength) <= 0){
-
-            socketObj.TranslateSocketError();
-            string sockError = socketObj.DescribeError();
-
-            myLogger -> error("an error occured receiving response DATA: " + sockError);
-            return -2;
-
-        }
-        
-        string respString = (char *) socketObj.GetData();
-        
-        response = respString;
-
-        //response.assign(rcvBuf.begin(), rcvBuf.end());
-        myLogger -> info ("response received: " + response);
-        myLogger -> flush();
-        
-    } catch (...) {
-
-        myLogger -> error ("unexpected error happened reading message response");
-        return -3;
 
     }
 
@@ -629,25 +599,21 @@ int Client::readMessageResponse2(string & response){
     int iResult = 0;
 
     try {
-
-        myLogger -> info("wait For HEADER response");
-        myLogger -> flush();
-
-        // Receive the string data
+        
         int rcvCode = this -> socketObj.Receive(SOCKET_SENDFILE_BLOCKSIZE);
 
         if(rcvCode < 0){
 
             socketObj.TranslateSocketError();
             string sockError = socketObj.DescribeError();
-            myLogger -> error("an error occured receiving HEADER RESPONSE: " + sockError);
+            
             return -1;
 
         } else if(rcvCode == 0){
 
             socketObj.TranslateSocketError();
             string sockError = socketObj.DescribeError();
-            myLogger -> error("connection shutted down before receiving HEADER RESPONSE: " + sockError);
+            
             return -2;
 
         }
@@ -656,14 +622,9 @@ int Client::readMessageResponse2(string & response){
 
         response.clear();
         response = respString;
-
-        //response.assign(rcvBuf.begin(), rcvBuf.end());
-        myLogger -> info ("RESPONSE HEADER received: " + response);
-        myLogger -> flush();
         
     } catch (...) {
 
-        myLogger -> error ("unexpected error happened reading message response");
         return -4;
 
     }

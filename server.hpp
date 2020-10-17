@@ -83,19 +83,14 @@ public:
 
             shared_ptr <spdlog::logger> log;
 
-            void waitUserConfiguration();
             int initLogger();
-            void waitForMessage();
             void waitForMessage2();
 
             int selective_search(string & response, msg::message2 & msg);
 
-            int readMessage(int fd, string & bufString);
             int readMessage2(int fd, string & bufString);
             int fromStringToMessage(string msg, msg::message2& message);
             int fromMessageToString(string & messageString, msg::message2 & msg);
-            int handleFileCreation(msg::message msg);
-            int handleFileUpdate(msg::message msg);
             int handleFileUpdate2(msg::message2 msg);
             int handleFileDelete(msg::message2 msg);
             int handleFileRename(msg::message2 msg);
@@ -103,8 +98,10 @@ public:
             int handleOkResponse(msg::message2 & response, msg::message2 &  msg);
             int handleErrorResponse(msg::message2 &  response, msg::message2 & msg, int errorCode);
 
+            int32 SendInitialConf(string conf, int32 nOutFd,int32 nCount);
+
+            int sendFileStream(string filePath);
             string compute_hash(const std::string file_path);
-            void sendResponse(int resCode, msg::message msg );
             int sendResponse2(int resCode, msg::message2 msg );
 
             int readFileStream(int packetsNumber, int fileFd);
