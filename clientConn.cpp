@@ -102,8 +102,13 @@ int Server::ClientConn::fromStringToMessage(string msg, msg::message2& message){
         jsonMSG.at("hash").get_to(message.hash);*/
         jsonMSG.at("body").get_to(message.body);
 
+        msg.clear();
+        //msg = "ok";
+
     } catch (...) {
 
+        msg.clear();
+        msg = "Error parsing string received into Message Object";
         return -10;
 
     }
@@ -140,14 +145,15 @@ RETURN:
 
 */
 
-int Server::ClientConn::selective_search(string & response, msg::message2 & msg)
+int Server::ClientConn::selective_search(string & response, string buf, msg::message2 & msg)
 {
     string serverBackupFolder, msgFolderPath, path;
 
-    // reset response string
-    response.clear();
-
     try{
+
+        // reset response string
+        response.clear();
+        buf.clear();
 
         serverBackupFolder = server.backupFolder;
         msgFolderPath = msg.folderPath;
@@ -167,6 +173,7 @@ int Server::ClientConn::selective_search(string & response, msg::message2 & msg)
     } catch (...){
 
         response = "[]";
+        buf = "unexpected error initializing recursive search locally to the server";
         return -1;
 
     }
@@ -176,6 +183,7 @@ int Server::ClientConn::selective_search(string & response, msg::message2 & msg)
     if( !boost::filesystem::exists(dstFolder)){
 
         response = "[]";
+        buf = "path doesn't exists -> no configuration available";
         return 0;
 
     }
@@ -208,15 +216,17 @@ int Server::ClientConn::selective_search(string & response, msg::message2 & msg)
     {
 
         response = "[]";
+        buf = "unexpected error during recursive search -> no configuration available";
         return -2;
 
     }
 
+    buf = "server configuration read correctly";
     return 0;
 
 }
 
-int32 Server::ClientConn::SendInitialConf(string conf, int32 nOutFd,int32 nCount)
+int32 Server::ClientConn::SendInitialConf(string conf, int32 nOutFd, int32 nCount)
 {
     int32  nOutCount = 0;
 
@@ -232,20 +242,24 @@ int32 Server::ClientConn::SendInitialConf(string conf, int32 nOutFd,int32 nCount
 
         if ((SEND(nOutFd, subConfString.c_str(), nInCount, 0)) != (int32)nInCount)
         {
+            conf.clear();
             return -1;
         }
 
         nOutCount += nInCount;
     }
 
+    conf.clear();
     return nOutCount;
 }
 
-int Server::ClientConn::sendResponse2(int resCode, msg::message2 msg) {
+int Server::ClientConn::sendResponse2(int resCode, string buf, msg::message2 msg) {
         
     msg::message2 response;
     string responseString;
     int sendCode = 0;
+
+    response.body = buf;
 
     if(resCode == 0)
         handleOkResponse(response, msg);
@@ -259,24 +273,9 @@ int Server::ClientConn::sendResponse2(int resCode, msg::message2 msg) {
 
         sendCode = this -> sockObject -> Send((const uint8 *) responseString.c_str(), responseString.length());
 
-        if(sendCode < 0){
-
-            sockObject -> TranslateSocketError();
-            string sockError = sockObject -> DescribeError();
-
+        if(sendCode <= 0){
             return -1;
-
-        } else if (sendCode == 0) {
-
-            sockObject -> TranslateSocketError();
-            string sockError = sockObject -> DescribeError();
-            
-            this -> running.store(false);
-
-            return -2;
-
         }
-
 
     } else {
 
@@ -326,7 +325,18 @@ int Server::ClientConn::readFileStream(int packetsNumber, int fileFd){
 
 }
 
-/// Reads message from fd
+/*
+
+Receive message from the server
+
+RETURN:
+
+ 0 -> no error
+-1 -> message error on receive
+-2 -> socket was closed
+-3 -> unexpected error
+
+*/
 int Server::ClientConn::readMessage2(int fd, string & bufString) {
 
     uint64_t rcvDataLength;
@@ -338,45 +348,175 @@ int Server::ClientConn::readMessage2(int fd, string & bufString) {
 
     try {
 
+        bufString.clear();
+
         // Receive the message header
         memset(rcvBuf, 0, SOCKET_SENDFILE_BLOCKSIZE);
         rcvCode = this -> sockObject -> Receive(SOCKET_SENDFILE_BLOCKSIZE, rcvBuf);
 
-        if(rcvCode < 0){
+        // Receive message error
+        if(rcvCode <= 0) {
 
             sockObject -> TranslateSocketError();
             string sockError = sockObject -> DescribeError();
             
-            return -2;
+            bufString = sockError;
 
-        } else if(rcvCode == 0){
-
-            sockObject -> TranslateSocketError();
-            string sockError = sockObject -> DescribeError();
-            
             this -> running.store(false);
-            return -4;
+            return -2;
 
         }
 
         string respString = (char *) rcvBuf;
 
-        bufString.clear();
         bufString = respString;
-
         
     } catch (...) {
 
+        bufString = "Unexpected error reading message";
         return -3;
 
     }
 
+    //bufString = "Message correctly read";
     return 0;
 
 }
 
+void Server::ClientConn::updateFile(int& resCode, string buf, msg::message2& msg){
 
+    resCode = sendResponse2(resCode, buf, msg);
+    log -> info ("[SND HEADER RESP]: returned code: " + to_string(resCode));
+    log -> flush();
+    if(resCode < 0) goto checkCode;
+                  
+    resCode = handleFileUpdate2(msg, buf);
+    log -> info ("[RCV STREAM]: returned code: " + to_string(resCode));
+    log -> flush();
+    if(resCode < 0) goto checkCode;
 
+    resCode = sendResponse2(resCode, buf, msg); 
+    log -> info ("[SND STREAM RESP]: returned code: " + to_string(resCode));
+    log -> flush();
+
+    checkCode:
+
+    // if there are errors on sending, the thread will exit
+    if(resCode < 0) {
+
+        this -> running.store(false);
+        return;
+
+    }
+
+    return;
+
+}
+
+void Server::ClientConn::renameFile(int& resCode, string buf, msg::message2& msg){
+
+    resCode = handleFileRename(msg, buf);
+    log -> info ("[RENAME]: returned code: " + to_string(resCode));
+    log -> flush();
+    if(resCode < 0) goto checkCode;
+
+    resCode = sendResponse2(resCode, buf, msg);
+    log -> info ("[SND HEADER RESP]: returned code: " + to_string(resCode));
+    log -> flush();
+
+    checkCode:
+
+    // if there are errors on sending, the thread will exit
+    if(resCode < 0) {
+
+        this -> running.store(false);
+        return;
+
+    }
+}
+
+void Server::ClientConn::deleteFile(int& resCode, string buf, msg::message2& msg){
+
+    resCode = handleFileDelete(msg, buf);
+    log -> info ("[DELETE]: returned code: " + to_string(resCode));
+    log -> flush();
+    if(resCode < 0) goto checkCode;
+
+    resCode = sendResponse2(resCode, buf, msg); 
+    log -> info ("[SND HEADER RESP]: returned code: " + to_string(resCode));
+    log -> flush();
+
+    checkCode:
+
+    // if there are errors on sending, the thread will exit
+    if(resCode < 0) {
+
+        this -> running.store(false);
+        return;
+
+    }
+
+}
+
+void Server::ClientConn::initialConfiguration(int& resCode, string buf, msg::message2& msg, string initialConf){
+
+    initialConf.clear();
+
+    resCode = selective_search(initialConf, buf, msg);
+
+    if(resCode == 0) {
+
+        int div = initialConf.length() / SOCKET_SENDFILE_BLOCKSIZE;
+        int rest = initialConf.length() % SOCKET_SENDFILE_BLOCKSIZE;
+
+        if(rest > 0)
+            div ++;
+
+        // set # packets used 
+        msg.packetNumber = div;
+
+        resCode = sendResponse2(resCode, buf, msg); 
+        log -> info ("[SND HEADER CONF]: returned code: " + to_string(resCode));
+        log -> flush();
+        if (resCode < 0) goto checkCode;
+        
+        resCode = readMessage2(sock, buf);          
+        if(resCode < 0) goto checkCode;
+
+        resCode = fromStringToMessage(buf, msg);
+        log -> info ("[RCV HEADER CONF RESP]: returned code: " + to_string(resCode));
+        log -> flush();    
+        if(resCode < 0) goto checkCode;
+
+        resCode = SendInitialConf(initialConf, this -> sockObject -> GetSocketDescriptor(), initialConf.length());
+        log -> info ("[SND STREAM]: returned code: " + to_string(resCode));
+        log -> flush();
+        if(resCode < 0) goto checkCode;
+
+        resCode = readMessage2(sock, buf);          
+        if(resCode < 0) goto checkCode;
+
+        resCode = fromStringToMessage(buf, msg);
+        log -> info ("[RCV STREAM RESP]: returned code: " + to_string(resCode));
+        log -> flush();
+        if(resCode < 0) goto checkCode;
+        
+        // if there are errors on the selective search i don't continue with other packets
+        resCode = sendResponse2(resCode, buf, msg);     
+
+    } 
+
+    checkCode: 
+
+    // if there are errors on sending, the thread will exit
+    if(resCode < 0) {
+
+        this -> running.store(false);
+        return;
+
+    }
+
+}
 
 void Server::ClientConn::waitForMessage2(){
 
@@ -405,12 +545,10 @@ void Server::ClientConn::waitForMessage2(){
             this -> activeMS.store(ms.count());
 
             buf.clear();
+            resCode = readMessage2(sock, buf);
 
-            if (readMessage2(sock, buf) == 0){
-           
-                string sBuf = buf;
-                string responseString;
-
+            if (resCode == 0){
+                
                 ms = duration_cast< milliseconds >(
                     system_clock::now().time_since_epoch()
                 );
@@ -431,102 +569,28 @@ void Server::ClientConn::waitForMessage2(){
                         case 1:
                         case 3:
 
-                            resCode = sendResponse2(resCode, msg); 
-
-                            log -> info ("[SND HEADER RESP]: returned code: " + to_string(resCode));
-                            log -> flush();
-                            
-                            if(resCode == 0){
-                                
-                                resCode = handleFileUpdate2(msg);
-                                
-                                log -> info ("[RCV STREAM]: returned code: " + to_string(resCode));
-                                log -> flush();
-
-                                resCode = sendResponse2(resCode, msg); 
-
-                                log -> info ("[SND STREAM RESP]: returned code: " + to_string(resCode));
-                                log -> flush();
-
-                            }
+                            updateFile(resCode, buf, msg);
 
                         break;
 
                         // file rename
                         case 2:
 
-                            resCode = handleFileRename(msg);
-
-                            log -> info ("[RENAME]: returned code: " + to_string(resCode));
-                            log -> flush();
-
-                            resCode = sendResponse2(resCode, msg); 
-
-                            log -> info ("[SND HEADER RESP]: returned code: " + to_string(resCode));
-                            log -> flush();
+                            renameFile(resCode, buf, msg);
 
                         break;
 
                         // file delete
                         case 4:
 
-                            resCode = handleFileDelete(msg);
-
-                            log -> info ("[DELETE]: returned code: " + to_string(resCode));
-                            log -> flush();
-
-                            resCode = sendResponse2(resCode, msg); 
-                            
-                            log -> info ("[SND HEADER RESP]: returned code: " + to_string(resCode));
-                            log -> flush();
+                            deleteFile(resCode, buf, msg);
 
                         break;
 
                         // initial configuration
                         case 5:
 
-                            resCode = selective_search(initialConf, msg);
-
-                            if(resCode == 0){
-
-                                int div = initialConf.length() / SOCKET_SENDFILE_BLOCKSIZE;
-                                int rest = initialConf.length() % SOCKET_SENDFILE_BLOCKSIZE;
-
-                                if(rest > 0)
-                                    div ++;
-
-                                // set # packets used 
-                                msg.packetNumber = div;
-
-                                resCode = sendResponse2(resCode, msg); 
-
-                                log -> info ("[SND HEADER CONF]: returned code: " + to_string(resCode));
-                                log -> flush();
-
-                                resCode = readMessage2(sock, buf);
-                                resCode = fromStringToMessage(buf, msg);
-
-                                log -> info ("[RCV HEADER CONF RESP]: returned code: " + to_string(resCode));
-                                log -> flush();
-
-                                resCode = SendInitialConf(initialConf, this -> sockObject -> GetSocketDescriptor(), initialConf.length());
-
-                                log -> info ("[SND STREAM]: returned code: " + to_string(resCode));
-                                log -> flush();
-
-                                resCode = readMessage2(sock, buf); 
-                                resCode = fromStringToMessage(buf, msg);
-
-                                log -> info ("[RCV STREAM RESP]: returned code: " + to_string(resCode));
-                                log -> flush();
-                                
-                                // to let the client inderstand that the server read everything inside the socket connection
-                                resCode = sendResponse2(resCode, msg); 
-
-                                log -> info ("[SND END STREAM]: returned code: " + to_string(resCode));
-                                log -> flush();
-
-                            }
+                            initialConfiguration(resCode, buf, msg, initialConf);
 
                         break;
 
@@ -535,27 +599,36 @@ void Server::ClientConn::waitForMessage2(){
 
                             running.store(false);
 
-                            resCode = sendResponse2(resCode, msg); 
+                            resCode = sendResponse2(resCode, buf, msg); 
                             
                             log -> info ("[SND HEADER RESP]: returned code: " + to_string(resCode));
                             log -> flush();
+
+                            // if there are errors on sending, the thread will exit
+                            if(resCode < 0) 
+                                this -> running.store(false);
 
                         break;
                         
                     }
 
-                }
+                } else {
 
+                    running.store(false);
+                    log -> info("[RCV HEADER]: error parsing message received from client");
+
+                }
 
             } else { 
 
-                log -> info("[RCV HEADER]: going to sleep for 1 second because of error");
-                sleep(1);
+                running.store(false);
+                log -> info("[RCV HEADER]: error receiving message from client");
 
             }
 
         } catch (...) {
 
+            running.store(false);
             log -> error("unexpected error happened");
             log -> info("going to sleep for 1 second because of error");
             sleep(1);
@@ -583,6 +656,7 @@ int Server::ClientConn::handleOkResponse(msg::message2 & response, msg::message2
         response.folderPath = msg.folderPath;
         response.fileName = msg.fileName;
         response.userName = msg.userName;
+        response.packetNumber = 1;
         response.body = "";
 
     } catch (...) {
@@ -610,35 +684,8 @@ int Server::ClientConn::handleErrorResponse(msg::message2 & response, msg::messa
         response.folderPath = msg.folderPath;
         response.fileName = msg.fileName;
         response.userName = msg.userName;
-
-        switch(errorCode){
-
-            case -1:
-                response.type = "missingFolderError";
-                response.body = "Folder doesn't exist!";
-            break;
-
-            case -2:
-                response.type = "missingFileError";
-                response.body = "File doesn't exist!";
-            break;
-
-            case -10:
-                response.type = "messageParsingStringError";
-                response.body = "An error happened during the parsing of the message received from the client";
-            break;
-
-            case -11:
-                response.type = "updateBackupFileError";
-                response.body = "An error happened during the update of server backup folder";
-            break;
-
-            case -20:
-                response.type = "genericError";
-                response.body = "A generic error";
-            break;
-
-        }
+        response.packetNumber = 1;
+        response.type = "error";
 
     } 
     catch (...) 
@@ -717,7 +764,7 @@ RETURN:
 
 */
 
-int Server::ClientConn::handleFileUpdate2(msg::message2 msg){
+int Server::ClientConn::handleFileUpdate2(msg::message2 msg, string buf){
 
     string serverBackupFolder, msgFolderPath, path;
     fs::path dstFolder, filePath;
@@ -727,6 +774,7 @@ int Server::ClientConn::handleFileUpdate2(msg::message2 msg){
     
     try {
         
+        buf.clear();
 
         serverBackupFolder = server.backupFolder;
         msgFolderPath = msg.folderPath;
@@ -773,12 +821,14 @@ int Server::ClientConn::handleFileUpdate2(msg::message2 msg){
             int read_return = read(sockFd, buffer, BUFSIZ);
             if (read_return == -1) {
                 
+                buf = "Error reading bytes from file-string received";
                 return -1;
 
             }
 
             if (write(fileFd, buffer, read_return) == -1) {
                 
+                buf = "Error updating bytes into server-local file";
                 return -2;
 
             }   
@@ -788,6 +838,7 @@ int Server::ClientConn::handleFileUpdate2(msg::message2 msg){
 
     } catch (...) {
 
+        buf = "Unexpected error updating file";
         return -20;
 
     }
@@ -802,12 +853,14 @@ RETURN:
 
 */
 
-int Server::ClientConn::handleFileRename(msg::message2 msg){
+int Server::ClientConn::handleFileRename(msg::message2 msg, string buf){
 
     string serverBackupFolder, msgFolderPath, path, oldPathString, newPathString;
     fs::path dstFolder;
 
     try {
+
+        buf.clear();
 
         serverBackupFolder = server.backupFolder;
         msgFolderPath = msg.folderPath;
@@ -837,6 +890,7 @@ int Server::ClientConn::handleFileRename(msg::message2 msg){
         // if the file doesn't exist return 
         if( ! fs::exists(oldPath)) {
 
+            buf = "file doesn't exists locally to the server";
             return -2;
 
         }
@@ -861,12 +915,14 @@ int Server::ClientConn::handleFileRename(msg::message2 msg){
 
         if(!completed || retryCount >= 5){
 
+            buf = "couldn't be able to complete renaming-operation";
             return -11;
 
         }    
 
     } catch (...) {
 
+        buf = "unexpected error during the renaming-operation";
         return -20;
 
     }
@@ -881,7 +937,7 @@ RETURN:
 
 */
 
-int Server::ClientConn::handleFileDelete(msg::message2 msg){
+int Server::ClientConn::handleFileDelete(msg::message2 msg, string buf){
     string serverBackupFolder, msgFolderPath, path;
     fs::path dstFolder, filePath;
 
@@ -890,6 +946,7 @@ int Server::ClientConn::handleFileDelete(msg::message2 msg){
     
     try {
         
+        buf.clear();
 
         serverBackupFolder = server.backupFolder;
         msgFolderPath = msg.folderPath;
@@ -907,17 +964,23 @@ int Server::ClientConn::handleFileDelete(msg::message2 msg){
 
         dstFolder = path;
 
-        if( ! fs::exists(dstFolder))
-            return -1; // folder doesn't exist
+        // folder doesn't exist
+        if( ! fs::exists(dstFolder)){
+
+            buf = "folder doesn't exist locally to the server";
+            return -1; 
+
+        }
 
         path +=  separator() + msg.fileName;
 
         filePath = path;
         
 
-        // if the file already exist doesn't need to be created
+        // the file doesn't exist
         if(!fs::exists(filePath)){
-                
+            
+            buf = "file doesn't exist locally to the server";
             return -2; // file doesn't exist
 
         }
@@ -941,12 +1004,14 @@ int Server::ClientConn::handleFileDelete(msg::message2 msg){
 
         if(!completed || retryCount >= 5) {
 
+            buf = "couldn't be able to complete delete-operation";
             return -11;
 
         }
 
     } catch(...){
 
+        buf = "unexpected error during delete-operation";
         return -20;
 
     }
@@ -978,7 +1043,7 @@ void Server::ClientConn::handleConnection(){
 
                     // send response to CONNECTION MESSAGE by the client
                     msg.body = "socket accepted";
-                    sendResponse2(0, msg);
+                    sendResponse2(0, "Socket Accepted", msg);
 
                     // while loop to wait for different messages from client
                     waitForMessage2();

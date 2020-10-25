@@ -25,9 +25,6 @@ int main(int argc, char** args)
     cout << "send create message 2" << endl;
 
     client.send(5, "/home/gaetano/Desktop/testRead", "test5.txt", "");
-    client.serverDisconnection();
-
-    client.serverConnection();
     client.send(3, "/home/gaetano/Desktop/testRead", "test5.txt", "");
     client.serverDisconnection();
 

@@ -86,14 +86,19 @@ public:
             int initLogger();
             void waitForMessage2();
 
-            int selective_search(string & response, msg::message2 & msg);
+            int selective_search(string & response, string buf, msg::message2 & msg);
 
             int readMessage2(int fd, string & bufString);
             int fromStringToMessage(string msg, msg::message2& message);
             int fromMessageToString(string & messageString, msg::message2 & msg);
-            int handleFileUpdate2(msg::message2 msg);
-            int handleFileDelete(msg::message2 msg);
-            int handleFileRename(msg::message2 msg);
+            int handleFileUpdate2(msg::message2 msg, string buf);
+            int handleFileDelete(msg::message2 msg, string buf);
+            int handleFileRename(msg::message2 msg, string buf);
+
+            void updateFile(int& resCode, string buf, msg::message2& msg);
+            void renameFile(int& resCode, string buf, msg::message2& msg);
+            void deleteFile(int& resCode, string buf, msg::message2& msg);
+            void initialConfiguration(int& resCode, string buf, msg::message2& msg, string initConf);
 
             int handleOkResponse(msg::message2 & response, msg::message2 &  msg);
             int handleErrorResponse(msg::message2 &  response, msg::message2 & msg, int errorCode);
@@ -102,7 +107,7 @@ public:
 
             int sendFileStream(string filePath);
             string compute_hash(const std::string file_path);
-            int sendResponse2(int resCode, msg::message2 msg );
+            int sendResponse2(int resCode, string buf, msg::message2 msg);
 
             int readFileStream(int packetsNumber, int fileFd);
         

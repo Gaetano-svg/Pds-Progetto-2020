@@ -288,7 +288,7 @@ int Client::sendFileStream(string filePath){
 
         int sendFileReturnCode = this -> socketObj.SendFile(this -> socketObj.GetSocketDescriptor(), fd, &offset, fileSize);
 
-        if(sendFileReturnCode < 0){
+        if(sendFileReturnCode <= 0){
 
             return -3;
 
@@ -309,27 +309,41 @@ int Client::send(int operation, string folderPath, string fileName, string conte
     int resCode = 0;
     string response;
  
-
     msg::message2 msg;
+
+    string filePath = folderPath + separator() + fileName;
+    FILE* file = fopen(filePath.c_str(), "r");
     
-    // UPDATE OR CREATE OPERATION
+    // check if the File exists in the local folder
+    if(file == NULL){
+
+        myLogger -> error("the file " + filePath + " wasn't found! ");
+        return -5;
+
+    }
+
+    myLogger -> info("");
+    myLogger -> info("[OPERATION_" + to_string(operation) + "]: path " + filePath);
+    myLogger -> info("");
+    myLogger -> flush();
+
+    // CREATE the Message Object
+    msg = {
+
+        "",
+        operation,
+        0, // timestamp
+        "",// hash
+        0,
+        folderPath,
+        fileName,
+        this -> uc.name,
+        content
+
+    };
+
+    // Set the # of packets because of FILE size
     if(operation == 1 || operation == 3){
-
-
-        string filePath = folderPath + separator() + fileName;
-
-        FILE* file = fopen(filePath.c_str(), "r");
-
-        if(file == NULL){
-
-            myLogger -> error("the file " + filePath + " wasn't found! ");
-            return -5;
-
-        }
-        myLogger -> info("");
-        myLogger -> info("[OPERATION_" + to_string(operation) + "]: path " + filePath);
-        myLogger -> info("");
-        myLogger -> flush();
 
         // obtain file size
         fseek(file, 0L, SEEK_END);
@@ -340,36 +354,30 @@ int Client::send(int operation, string folderPath, string fileName, string conte
         int numberOfPackets = div;
         if(rest > 0)
             numberOfPackets ++;
-
-        msg = {
-
-            "",
-            operation,
-            0, // timestamp
-            "",// hash
-            numberOfPackets,
-            folderPath,
-            fileName,
-            this -> uc.name,
-            content
-
-        };
-
-        resCode = sendMessage2(msg);
         
-        myLogger -> info("[OPERATION_" + to_string(operation) + "]: SND MSG returned code: " + to_string(resCode));
-        myLogger -> flush();
+        // set the # of packets 
+        msg.packetNumber = numberOfPackets;
 
-        if(resCode < 0)
-            return -1;
+    }
 
-        resCode = readMessageResponse2(response);
-
-        myLogger -> info("[OPERATION_" + to_string(operation) + "]: RCV RESP returned code: " + to_string(resCode));
-        myLogger -> flush();
+    resCode = sendMessage2(msg);
         
-        if(resCode < 0)
-            return -2;
+    myLogger -> info("[OPERATION_" + to_string(operation) + "]: SND MSG returned code: " + to_string(resCode));
+    myLogger -> flush();
+
+    if(resCode < 0)
+        return -1;
+
+    resCode = readMessageResponse2(response);
+
+    myLogger -> info("[OPERATION_" + to_string(operation) + "]: RCV RESP returned code: " + to_string(resCode));
+    myLogger -> flush();
+        
+    if(resCode < 0)
+        return -2;
+
+    // UPDATE OR CREATE OPERATION
+    if(operation == 1 || operation == 3){
         
         resCode = sendFileStream(filePath);
 
@@ -387,46 +395,10 @@ int Client::send(int operation, string folderPath, string fileName, string conte
         if(resCode < 0)
             return -4;
 
-    } else {
-
-        myLogger -> info("");
-        myLogger -> info("[OPERATION_" + to_string(operation) + "]: path " + folderPath);
-        myLogger -> info("");
-        myLogger -> flush();
-
-        msg = {
-
-            "",
-            operation,
-            0, // timestamp
-            "",// hash
-            0,
-            folderPath,
-            fileName,
-            this -> uc.name,
-            content
-
-        };
-
-        resCode = sendMessage2(msg);
-
-        myLogger -> info("[OPERATION_" + to_string(operation) + "]: SEND MSG returned code: " + to_string(resCode));
-        myLogger -> flush();
-
-        if(resCode < 0)
-            return -1;
-
-        resCode = readMessageResponse2(response);
-
-        myLogger -> info("[OPERATION_" + to_string(operation) + "]: RCV RESP returned code: " + to_string(resCode));
-        myLogger -> flush();
-
-        if(resCode < 0)
-            return -2;
-
+    } else if (operation == 5){
+        
         // INITIAL CONFIGURATION
-        if (operation == 5){
-            
+
             string initialConf;
 
             // SEND OK RESPONSE
@@ -467,8 +439,6 @@ int Client::send(int operation, string folderPath, string fileName, string conte
             if(resCode < 0)
                 return -6;
 
-        }
-
     }
 
     return 0;
@@ -484,7 +454,7 @@ int Client::readInitialConfStream(int packetsNumber, string conf){
 
     int i = 0;
     int sockFd = this -> socketObj.GetSocketDescriptor();
-    char buffer [BUFSIZ];
+    uint8 buffer [BUFSIZ];
 
     do {
 
@@ -493,17 +463,17 @@ int Client::readInitialConfStream(int packetsNumber, string conf){
         // reset char array
         memset(buffer, 0, BUFSIZ);
 
-        int read_return = read(sockFd, buffer, BUFSIZ);
+        int rcvCode = this -> socketObj.Receive(SOCKET_SENDFILE_BLOCKSIZE, buffer);
 
-        if (read_return == -1) {
-            
+        if(rcvCode <= 0){
+
             return -1;
 
         }
 
         try {
 
-            string tempBuf = buffer;
+            string tempBuf = (char*)buffer;
             conf += tempBuf;
 
         } catch (...) {
@@ -552,21 +522,11 @@ int Client::sendMessage2(msg::message2 msg){
 
         int sendCode = this -> socketObj.Send((const uint8 *) jMsgString.c_str(), jMsgString.length());
 
-        if(sendCode < 0){
-
-            socketObj.TranslateSocketError();
-            string sockError = socketObj.DescribeError();
+        if(sendCode <= 0){
 
             return -2;
 
-        } else if (sendCode == 0) {
-
-            socketObj.TranslateSocketError();
-            string sockError = socketObj.DescribeError();
-
-            return -3;
-
-        }
+        } 
 
     } catch(...){
 
@@ -593,35 +553,26 @@ RETURN:
 
 int Client::readMessageResponse2(string & response){
 
-    std::vector<uint8_t> rcvBuf;    // Allocate a receive buffer
+    uint8_t rcvBuf [SOCKET_SENDFILE_BLOCKSIZE];    // Allocate a receive buffer
     int rcvCode = 0;
     fd_set set;
     int iResult = 0;
 
     try {
         
-        int rcvCode = this -> socketObj.Receive(SOCKET_SENDFILE_BLOCKSIZE);
+        memset(rcvBuf, 0, SOCKET_SENDFILE_BLOCKSIZE);
+        int rcvCode = this -> socketObj.Receive(SOCKET_SENDFILE_BLOCKSIZE, rcvBuf);
 
-        if(rcvCode < 0){
+        if(rcvCode <= 0){
 
-            socketObj.TranslateSocketError();
-            string sockError = socketObj.DescribeError();
-            
             return -1;
-
-        } else if(rcvCode == 0){
-
-            socketObj.TranslateSocketError();
-            string sockError = socketObj.DescribeError();
-            
-            return -2;
 
         }
         
-        string respString = (char *) socketObj.GetData();
-
         response.clear();
-        response = respString;
+        response = (char*) rcvBuf;
+
+        cout << response << endl;
         
     } catch (...) {
 
