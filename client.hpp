@@ -25,18 +25,22 @@ using json = nlohmann::json;
 class Client {
 
 	int sock;
-
     CActiveSocket socketObj;
     conf::user uc;
-    
     std::shared_ptr <spdlog::logger> myLogger;
 
-    int sendMessage2(msg::message2 msg);
-    int readMessageResponse2 (string & response);
-    int sendFileStream(string filePath);
-    int readInitialConfStream(int packetsNumber, string conf);
+    // send bytes
+    int sendMessage (msg::message2 msg);
+    int sendFileStream (string filePath);
+
+    // receive bytes
+    int readMessageResponse (string & response);
+    int readInitialConfStream (int packetsNumber, string conf);
+
+    // parsing method
     int fromStringToMessage(string msg, msg::message& message);
 
+    // separator to create correct paths
     inline string separator()
     {
         #ifdef _WIN32
@@ -48,12 +52,13 @@ class Client {
 
 public:
 
-    int send(int operation, string folderPath, string fileName, string content);
-    
     int readConfiguration ();
     int initLogger();
+
     int serverConnection();
+    int send(int operation, string folderPath, string fileName, string content);
     int serverDisconnection();
+    
     bool isClosed ();
 
 };
