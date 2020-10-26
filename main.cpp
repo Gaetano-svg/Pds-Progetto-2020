@@ -21,36 +21,6 @@ int main()
 
     // start the server listening to client connections
     server.startListening();
-/*
-    CPassiveSocket socket;
-    CActiveSocket *pClient = NULL;
-
-    //--------------------------------------------------------------------------
-    // Initialize our socket object 
-    //--------------------------------------------------------------------------
-    socket.Initialize();
-
-    socket.Listen("127.0.0.1", 3524);
-
-    while (true)
-    {
-        if ((pClient = socket.Accept()) != NULL)
-        {
-            //----------------------------------------------------------------------
-            // Receive request from the client.
-            //----------------------------------------------------------------------
-            if (pClient->Receive(MAX_PACKET))
-            {
-                //------------------------------------------------------------------
-                // Send response to client and close connection to the client.
-                //------------------------------------------------------------------
-                pClient->Send( pClient->GetData(), pClient->GetBytesReceived() );
-                pClient->Close();
-            }
-
-            delete pClient;
-        }
-    }*/
 
     cout << "exit" << endl;
 
