@@ -1,4 +1,3 @@
-
 #include "client.hpp"
 
 #define PACKET_SIZE SOCKET_SENDFILE_BLOCKSIZE
@@ -185,8 +184,12 @@ RETURN:
     -7 -> error sending CONF STREAM response
     -8 -> error receving END STREAM 
     -10 -> filePath wasn't found on the client side
+    -11 -> interrupt from file watcher
 */
-int Client::send(int operation, string folderPath, string fileName, string content){
+int Client::send(int operation, string folderPath, string fileName, string content, std::uintmax_t file_size, 
+                            string hash, long timestamp, std::atomic<bool>& b){
+
+    std::atomic <bool> a(false);
 
     int resCode = 0;
     string response;
@@ -214,8 +217,8 @@ int Client::send(int operation, string folderPath, string fileName, string conte
 
         "",
         operation,
-        0, // timestamp
-        "",// hash
+        timestamp,
+        hash,
         0,
         folderPath,
         fileName,
@@ -228,6 +231,7 @@ int Client::send(int operation, string folderPath, string fileName, string conte
     if(operation == 1 || operation == 3){
 
         // obtain file size
+        // ?? FILE_SIZE DA FILE WATCHER ??
         fseek(file, 0L, SEEK_END);
         int fileSize = ftell(file); 
 
@@ -241,11 +245,14 @@ int Client::send(int operation, string folderPath, string fileName, string conte
         msg.packetNumber = numberOfPackets;
 
     }
+    
+    resCode = sendMessage(msg, b);
 
-    resCode = sendMessage(msg);
-        
     myLogger -> info("[OPERATION_" + to_string(operation) + "]: SND MSG returned code: " + to_string(resCode));
     myLogger -> flush();
+
+    if(resCode == -11)
+        return -11;
 
     if(resCode < 0)
         return -1;
@@ -261,10 +268,13 @@ int Client::send(int operation, string folderPath, string fileName, string conte
     // UPDATE OR CREATE OPERATION
     if(operation == 1 || operation == 3){
         
-        resCode = sendFileStream(filePath);
+        resCode = sendFileStream(filePath, b);
 
         myLogger -> info("[OPERATION_" + to_string(operation) + "]: SND FILE STREAM returned code: " + to_string(resCode));
         myLogger -> flush();
+
+        if(resCode == -11)
+            return -11;
 
         if(resCode < 0)
             return -3;
@@ -289,7 +299,7 @@ int Client::send(int operation, string folderPath, string fileName, string conte
 
             int numberPackets = msg.packetNumber;
 
-            resCode = sendMessage(msg);
+            resCode = sendMessage(msg, a);
 
             myLogger -> info("[OPERATION_" + to_string(operation) + "]: SEND CONF RESP returned code: " + to_string(resCode));
             myLogger -> flush();
@@ -305,7 +315,7 @@ int Client::send(int operation, string folderPath, string fileName, string conte
             if(resCode < 0)
                 return -6;
 
-            resCode = sendMessage(msg);
+            resCode = sendMessage(msg, a);
 
             myLogger -> info("[OPERATION_" + to_string(operation) + "]: SEND CONF STREAM RESP returned code: " + to_string(resCode));
             myLogger -> flush();
@@ -341,6 +351,8 @@ RETURN:
 */
 int Client::serverDisconnection () {
 
+    std::atomic <bool> a(false);
+    
     try {
 
         int resCode = 0;
@@ -363,7 +375,7 @@ int Client::serverDisconnection () {
 
         };
 
-        resCode = sendMessage(fcu2);
+        resCode = sendMessage(fcu2, a);
         
         if(resCode < 0) {
 
@@ -446,7 +458,7 @@ RETURN:
 -3 ---> unexpected error
 
 */
-int Client::sendMessage(msg::message2 msg){
+int Client::sendMessage(msg::message2 msg, std::atomic<bool>& b){
 
     json jMsg;
     int sendCode = 0;
@@ -467,7 +479,13 @@ int Client::sendMessage(msg::message2 msg){
 
         string jMsgString = jMsg.dump();
 
-        int sendCode = this -> socketObj.Send((const uint8 *) jMsgString.c_str(), jMsgString.length());
+        if(b.load()){
+
+            return -11;
+            
+        }
+
+        int sendCode = this -> socketObj.Send((const uint8_t *) jMsgString.c_str(), jMsgString.length());
 
         if(sendCode <= 0){
 
@@ -496,7 +514,7 @@ RETURN:
 -4 ---> unexpected error
 
 */
-int Client::sendFileStream(string filePath){
+int Client::sendFileStream(string filePath, std::atomic<bool>& b){
 
     json jMsg;
     int sendCode = 0;
@@ -524,6 +542,12 @@ int Client::sendFileStream(string filePath){
         // obtain file size
         fseek(file, 0L, SEEK_END);
         int fileSize = ftell(file);
+
+        if(b.load()){
+
+            return -11;
+            
+        }
 
         int sendFileReturnCode = this -> socketObj.SendFile(this -> socketObj.GetSocketDescriptor(), fd, &offset, fileSize);
 
@@ -602,7 +626,7 @@ int Client::readInitialConfStream(int packetsNumber, string conf){
 
     int i = 0;
     int sockFd = this -> socketObj.GetSocketDescriptor();
-    uint8 buffer [BUFSIZ];
+    uint8_t buffer [BUFSIZ];
 
     try {
 

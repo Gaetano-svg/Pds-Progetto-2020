@@ -30,8 +30,8 @@ class Client {
     std::shared_ptr <spdlog::logger> myLogger;
 
     // send bytes
-    int sendMessage (msg::message2 msg);
-    int sendFileStream (string filePath);
+    int sendMessage (msg::message2 msg, std::atomic<bool>& b);
+    int sendFileStream (string filePath, std::atomic<bool>& b);
 
     // receive bytes
     int readMessageResponse (string & response);
@@ -56,7 +56,8 @@ public:
     int initLogger();
 
     int serverConnection();
-    int send(int operation, string folderPath, string fileName, string content);
+    int send(int operation, string folderPath, string fileName, string content, std::uintmax_t file_size, 
+                            string hash, long timestamp, std::atomic<bool>& b);
     int serverDisconnection();
     
     bool isClosed ();

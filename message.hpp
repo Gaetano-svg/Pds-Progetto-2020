@@ -29,7 +29,8 @@ namespace msg {
         string  type;
         int     typeCode;
 
-        long    timestamp;
+        // std::filesystem::file_time_type    timestamp; DA MODIFICARE
+        long timestamp;
         string  hash;
 
         int     packetNumber;
@@ -40,6 +41,7 @@ namespace msg {
         string  body;
 
     };
+
 
     ///////////////////////////////////
     ///*** INITIAL CONFIGURATION ***///
@@ -124,4 +126,4 @@ namespace msg {
 
     };
 
-}
+};
