@@ -1,0 +1,2 @@
+[2020-11-29 19:14:05.114] [] [info] Logger initialized correctly with file _log.txt
+[2020-11-29 19:14:05.120] [] [info] Initialized socket object

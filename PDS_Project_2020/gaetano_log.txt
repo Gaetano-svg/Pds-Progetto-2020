@@ -1,0 +1,53 @@
+[2020-11-29 19:16:06.991] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-29 19:23:41.535] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-29 19:23:41.541] [gaetano] [info] Initialized socket object
+[2020-11-29 19:26:13.325] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-29 19:26:13.332] [gaetano] [info] Initialized socket object
+[2020-11-29 19:26:43.573] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-29 19:26:43.579] [gaetano] [info] Initialized socket object
+[2020-11-29 19:26:45.618] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-29 19:26:45.618] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-29 19:26:47.626] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-29 19:26:47.626] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-29 19:26:49.633] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-29 19:26:49.633] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-29 19:26:51.642] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-29 19:26:51.642] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-29 19:26:53.656] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-29 19:26:53.656] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-30 01:20:03.622] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-30 01:20:03.631] [gaetano] [info] Initialized socket object
+[2020-11-30 01:20:05.658] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-30 01:20:05.658] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-30 01:20:07.666] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-30 01:20:07.666] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-30 01:20:09.675] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-30 01:20:09.675] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-30 01:21:23.413] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-30 01:21:23.422] [gaetano] [info] Initialized socket object
+[2020-11-30 01:27:59.532] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-30 01:27:59.543] [gaetano] [info] Initialized socket object
+[2020-11-30 01:28:01.604] [gaetano] [info] 1 Can't connect to server 127.0.0.1 port: 3524
+[2020-11-30 01:28:01.604] [gaetano] [info] 1 Try again to connect in 5 seconds
+[2020-11-30 01:35:56.411] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-30 01:35:56.421] [gaetano] [info] Initialized socket object
+[2020-11-30 01:39:23.525] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-30 01:39:23.535] [gaetano] [info] Initialized socket object
+[2020-11-30 14:03:05.198] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-30 14:03:05.214] [gaetano] [info] Initialized socket object
+[2020-11-30 14:03:05.250] [gaetano] [info] 
+[2020-11-30 14:03:05.250] [gaetano] [info] [OPERATION_5]: path C:/Users/gabuscema/Desktop/UserFolder/OtherFolder\ciao.txt
+[2020-11-30 14:03:05.250] [gaetano] [info] 
+[2020-11-30 14:26:47.176] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-30 14:26:47.191] [gaetano] [info] Initialized socket object
+[2020-11-30 14:26:47.223] [gaetano] [info] 
+[2020-11-30 14:26:47.223] [gaetano] [info] [OPERATION_5]: path C:/Users/gabuscema/Desktop/UserFolder/OtherFolder\ciao.txt
+[2020-11-30 14:26:47.223] [gaetano] [info] 
+[2020-11-30 14:26:51.032] [gaetano] [info] [OPERATION_5]: SND MSG returned code: 0
+[2020-11-30 14:27:38.387] [gaetano] [info] [OPERATION_5]: RCV RESP returned code: 0
+[2020-11-30 14:27:44.335] [gaetano] [info] [OPERATION_5]: SEND CONF RESP returned code: 0
+[2020-11-30 14:27:47.443] [gaetano] [info] [OPERATION_5]: RCV CONF STREAM returned code: 0
+[2020-11-30 14:27:49.486] [gaetano] [info] [OPERATION_5]: SEND CONF STREAM RESP returned code: 0
+[2020-11-30 14:27:53.406] [gaetano] [info] [OPERATION_5]: RCV END STREAM returned code: 0
+[2020-11-30 15:34:55.590] [gaetano] [info] Logger initialized correctly with file gaetano_log.txt
+[2020-11-30 15:34:55.638] [gaetano] [info] Initialized socket object
